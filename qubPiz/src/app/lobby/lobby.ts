@@ -63,20 +63,25 @@ export class Lobby implements OnInit {
             routePath = '/round/question';
           }
 
-          // CRITICAL FIX: Only navigate IF the current URL is the root/lobby path.
-          // This avoids infinite loops and ensures the player leaves the Lobby view.
+          // CRITICAL FIX: Get the current path without query parameters.
           const currentPath = this.router.url.split('?')[0];
 
+          // Only navigate if the current path is the root ('/') or '/lobby'.
           if (currentPath === '/' || currentPath === '/lobby') {
-            this.router.navigate([routePath], { 
-              queryParamsHandling: 'merge'
-            });
+            
+            // Use createUrlTree and navigateByUrl to force Angular routing execution
+            const newUrl = this.router.createUrlTree([routePath], { 
+                queryParamsHandling: 'merge', // Keep parameters like name=...
+            }).toString();
+
+            // Force navigation execution and prevent history stacking
+            this.router.navigateByUrl(newUrl, { replaceUrl: true });
           }
         } 
         
         // Return to lobby if the display is cleared while player is on a round page
         else if (!data.current_round_id && this.router.url.startsWith('/round/')) {
-             this.router.navigate(['/']); // Navigate back to the root path
+             this.router.navigate(['/'], { replaceUrl: true }); // Navigate back to the root path
         }
       });
   }
