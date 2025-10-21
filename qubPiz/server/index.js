@@ -69,6 +69,7 @@ let currentQuizId = null;
         quiz_date DATE NOT NULL,
         status VARCHAR(20) DEFAULT 'waiting',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        /* current_round_id is added below */
       )
     `);
 
@@ -102,6 +103,18 @@ let currentQuizId = null;
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    
+    // START NEW SCHEMA CHANGES: Add current_round_id column 
+    await pool.query(`
+      DO $$ 
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='game_session' AND column_name='current_round_id') THEN
+          ALTER TABLE game_session ADD COLUMN current_round_id INTEGER REFERENCES rounds(id) ON DELETE SET NULL;
+        END IF;
+      END
+      $$;
+    `);
+    // END NEW SCHEMA CHANGES
 
     console.log('Database tables created successfully');
   } catch (err) {
@@ -137,23 +150,30 @@ app.get('/api/quizzes', async (req, res) => {
   }
 });
 
-// Select a quiz to work on
+// Select a quiz to work on (UPDATED to clear players and active round)
 app.post('/api/quiz/select/:id', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM game_session WHERE id = $1', [req.params.id]);
+    const quizId = parseInt(req.params.id);
+    const result = await pool.query('SELECT * FROM game_session WHERE id = $1', [quizId]);
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Quiz not found' });
     }
-    currentQuizId = parseInt(req.params.id);
-    // Clear players when switching quizzes
+    
+    currentQuizId = quizId;
+    
+    // Clear players and active round when switching quizzes
     await pool.query('DELETE FROM players');
-    res.json({ quiz: result.rows[0] });
+    await pool.query('UPDATE game_session SET current_round_id = NULL WHERE id = $1', [quizId]);
+
+    // Re-fetch quiz data after update (to include cleared current_round_id)
+    const updatedResult = await pool.query('SELECT * FROM game_session WHERE id = $1', [quizId]);
+    res.json({ quiz: updatedResult.rows[0] });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Get current active quiz
+// Get current active quiz (UPDATED to select new column)
 app.get('/api/quiz/current', async (req, res) => {
   try {
     if (!currentQuizId) {
@@ -170,18 +190,80 @@ app.get('/api/quiz/current', async (req, res) => {
   }
 });
 
-// Check if game is active
+// Check if game is active (lobby is active only when status is 'active')
 app.get('/api/game/status', async (req, res) => {
   try {
     if (!currentQuizId) {
       return res.json({ active: false });
     }
-    const result = await pool.query('SELECT status FROM game_session WHERE id = $1', [currentQuizId]);
+    // Fetch status and current_round_id
+    const result = await pool.query('SELECT status, current_round_id FROM game_session WHERE id = $1', [currentQuizId]);
     if (result.rows.length === 0) {
       res.json({ active: false });
     } else {
-      res.json({ active: true, status: result.rows[0].status });
+      const status = result.rows[0].status;
+      const isActive = status === 'active'; 
+      res.json({ 
+        active: isActive, 
+        status: status,
+        current_round_id: result.rows[0].current_round_id // Expose current round ID to lobby
+      });
     }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Toggle game status (UPDATED FOR 3 STATES)
+app.post('/api/game/toggle-status', async (req, res) => {
+  try {
+    if (!currentQuizId) {
+      return res.status(400).json({ error: 'No active quiz selected' });
+    }
+    
+    const currentStatusResult = await pool.query(
+      'SELECT status FROM game_session WHERE id = $1',
+      [currentQuizId]
+    );
+    
+    if (currentStatusResult.rows.length === 0) {
+        return res.status(404).json({ error: 'Current quiz not found' });
+    }
+
+    const currentStatus = currentStatusResult.rows[0].status;
+    let newStatus = '';
+    let updateQuery = '';
+
+    if (currentStatus === 'waiting') {
+        newStatus = 'active';
+        // When starting the game, ensure round is clear just in case
+        updateQuery = 'UPDATE game_session SET status = $1, current_round_id = NULL WHERE id = $2 RETURNING *';
+    } else if (currentStatus === 'active') {
+        // Game is running, close the lobby
+        newStatus = 'closed';
+        updateQuery = 'UPDATE game_session SET status = $1 WHERE id = $2 RETURNING *';
+    } else if (currentStatus === 'closed') {
+        // Game is running, re-open the lobby
+        newStatus = 'active';
+        updateQuery = 'UPDATE game_session SET status = $1 WHERE id = $2 RETURNING *';
+    } else {
+        // Fallback to waiting and ensure active round is cleared
+        newStatus = 'waiting'; 
+        updateQuery = 'UPDATE game_session SET status = $1, current_round_id = NULL WHERE id = $2 RETURNING *';
+    }
+    
+    // If we transition to 'waiting' (e.g. game over), clear active round
+    if (newStatus === 'waiting') {
+        updateQuery = 'UPDATE game_session SET status = $1, current_round_id = NULL WHERE id = $2 RETURNING *';
+    }
+
+    // Update the status in the database
+    const updateResult = await pool.query(
+      updateQuery,
+      [newStatus, currentQuizId]
+    );
+    
+    res.json({ quiz: updateResult.rows[0], message: `Game status set to ${newStatus}` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -232,6 +314,101 @@ app.post('/api/reset', async (req, res) => {
   try {
     await pool.query('DELETE FROM players');
     res.json({ players: [] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Remove a specific player
+app.delete('/api/player/remove/:name', async (req, res) => {
+  const { name } = req.params;
+  try {
+    const result = await pool.query('DELETE FROM players WHERE name = $1 RETURNING *', [name]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Player not found' });
+    }
+    // Return updated list of players
+    const playersResult = await pool.query('SELECT name FROM players ORDER BY joined_at');
+    res.json({ players: playersResult.rows.map(r => r.name), message: `${name} removed.` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// ============= MC QUESTION DISPLAY ENDPOINTS =============
+
+// NEW ENDPOINT: MC sets the round to be displayed
+app.post('/api/game/set-round/:roundId', async (req, res) => {
+  const roundId = parseInt(req.params.roundId);
+  try {
+    if (!currentQuizId) {
+      return res.status(400).json({ error: 'No active quiz selected' });
+    }
+    
+    // Check for "clear display" signal (roundId === 0)
+    if (roundId === 0) {
+      await pool.query('UPDATE game_session SET current_round_id = NULL WHERE id = $1', [currentQuizId]);
+      return res.json({ success: true, message: 'Display cleared (current_round_id set to NULL)' });
+    }
+
+    // Validate that the round belongs to the current quiz
+    const roundResult = await pool.query(
+      'SELECT id FROM rounds WHERE id = $1 AND game_session_id = $2',
+      [roundId, currentQuizId]
+    );
+
+    if (roundResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Round not found for current quiz.' });
+    }
+    
+    // Set the current_round_id in the game session
+    await pool.query(
+      'UPDATE game_session SET current_round_id = $1 WHERE id = $2',
+      [roundId, currentQuizId]
+    );
+
+    res.json({ success: true, roundId: roundId, message: `Round ${roundId} set for display.` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// NEW ENDPOINT: Players poll this to get the current round and questions
+app.get('/api/game/display-data', async (req, res) => {
+  try {
+    if (!currentQuizId) {
+      return res.json({ round: null, questions: [] });
+    }
+    
+    // 1. Get the current displayed round ID from the game session
+    const gameSessionResult = await pool.query(
+      'SELECT current_round_id FROM game_session WHERE id = $1',
+      [currentQuizId]
+    );
+
+    const currentRoundId = gameSessionResult.rows[0]?.current_round_id;
+    
+    if (!currentRoundId) {
+      return res.json({ round: null, questions: [] });
+    }
+
+    // 2. Get the round details
+    const roundResult = await pool.query(
+      'SELECT id, name, round_type FROM rounds WHERE id = $1',
+      [currentRoundId]
+    );
+    const round = roundResult.rows[0];
+
+    // 3. Get all questions (and non-sensitive data: NO ANSWER) for that round
+    const questionsResult = await pool.query(
+      'SELECT id, question_text, image_url, question_order FROM questions WHERE round_id = $1 ORDER BY question_order',
+      [currentRoundId]
+    );
+    const questions = questionsResult.rows;
+
+    res.json({ round: round, questions: questions });
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -295,10 +472,13 @@ app.put('/api/rounds/:id', async (req, res) => {
   }
 });
 
-// Delete a round
+// Delete a round (UPDATED to clear current_round_id if necessary)
 app.delete('/api/rounds/:id', async (req, res) => {
   try {
-    await pool.query('DELETE FROM rounds WHERE id = $1', [req.params.id]);
+    const roundId = parseInt(req.params.id);
+    // Clear display if this round was active
+    await pool.query('UPDATE game_session SET current_round_id = NULL WHERE current_round_id = $1', [roundId]);
+    await pool.query('DELETE FROM rounds WHERE id = $1', [roundId]);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

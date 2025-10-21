@@ -6,11 +6,10 @@
       {{ showQuizList ? 'Hide Quiz List' : 'Select Quiz' }}
     </button>
     <button (click)="showNewQuizForm = !showNewQuizForm" class="create-btn">
-      {{ showNewQuizForm ? 'Cancel' : 'Create New Quiz' }}
+      {{ showNewQuizForm ? 'Cancel Creation' : 'Create New Quiz' }}
     </button>
   </div>
 
-  <!-- Quiz List -->
   <div *ngIf="showQuizList" class="quiz-list">
     <h3>All Quizzes</h3>
     <div *ngIf="allQuizzes.length === 0" class="no-quizzes">
@@ -28,7 +27,6 @@
     </ul>
   </div>
 
-  <!-- Create New Quiz Form -->
   <div *ngIf="showNewQuizForm" class="quiz-form">
     <h3>Create New Quiz</h3>
     <label>Quiz Name</label>
@@ -47,18 +45,41 @@
     <button (click)="createQuiz()" class="save-btn">Create Quiz</button>
   </div>
 
-  <!-- Current Quiz Info -->
   <div *ngIf="currentQuiz" class="current-quiz">
     <h2>{{ currentQuiz.quiz_name }}</h2>
     <p class="quiz-date-display">{{ currentQuiz.quiz_date | date:'fullDate' }}</p>
     
-    <!-- Round Manager -->
+    <div class="game-status-panel">
+      <button (click)="toggleGameStatus()" 
+              [ngClass]="{
+                'start-game-btn': currentQuiz.status === 'waiting' || currentQuiz.status === 'closed', 
+                'end-game-btn': currentQuiz.status === 'active'
+              }">
+        <span *ngIf="currentQuiz.status === 'waiting'">Start Game & Open Lobby</span>
+        <span *ngIf="currentQuiz.status === 'active'">Close Lobby (Game Running)</span>
+        <span *ngIf="currentQuiz.status === 'closed'">Re-Open Lobby (Game Running)</span>
+      </button>
+      <p>Status: <strong>{{ currentQuiz.status | uppercase }}</strong></p>
+    </div>
+    
+    <div class="player-management">
+      <h3>Players in Game ({{ players.length }})</h3>
+      <div *ngIf="players.length === 0" class="no-players">
+        No players have joined yet.
+      </div>
+      <ul class="player-list">
+        <li *ngFor="let player of players">
+          <span>{{ player }}</span>
+          <button (click)="removePlayer(player)" class="remove-player-btn">Remove</button>
+        </li>
+      </ul>
+      <button (click)="resetGame()" class="reset-btn">Clear All Players</button>
+    </div>
     <app-round-manager 
       [currentQuizId]="currentQuiz.id"
       (roundSelected)="onRoundSelected($event)">
     </app-round-manager>
     
-    <!-- Question Manager (shows when round selected) -->
     <app-question-manager 
       *ngIf="selectedRound"
       [currentRound]="selectedRound">

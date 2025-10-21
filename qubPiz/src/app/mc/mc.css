@@ -1,70 +1,204 @@
 /* MC Component - Component-specific layout only */
 
 div {
-  padding: 40px;
-  max-width: 1200px;
-  margin: 0 auto;
+    padding: 40px;
+    max-width: 1200px;
+    margin: 0 auto;
 }
 
 .quiz-actions {
-  display: flex;
-  gap: 15px;
-  margin-bottom: 30px;
+    display: flex;
+    gap: 15px;
+    margin-bottom: 30px;
 }
 
 .quiz-list {
-  background-color: var(--bg-secondary);
-  padding: 20px;
-  border-radius: var(--radius-md);
-  margin-bottom: 30px;
+    background-color: var(--bg-secondary);
+    padding: 20px;
+    border-radius: var(--radius-md);
+    margin-bottom: 30px;
 }
 
 .quiz-item {
-  display: flex;
-  align-items: center;
-  gap: 15px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
 }
 
 .quiz-item strong {
-  flex: 1;
-  color: var(--text-primary);
+    flex: 1;
+    color: var(--text-primary);
 }
 
 .quiz-date {
-  color: var(--text-secondary);
-  font-size: 14px;
+    color: var(--text-secondary);
+    font-size: 14px;
 }
 
 .quiz-form {
-  background-color: var(--bg-secondary);
-  padding: 25px;
-  border-radius: var(--radius-md);
-  margin-bottom: 30px;
+    background-color: var(--bg-secondary);
+    padding: 25px;
+    border-radius: var(--radius-md);
+    margin-bottom: 30px;
 }
 
 .current-quiz {
-  background-color: var(--bg-secondary);
-  padding: 25px;
-  border-radius: var(--radius-md);
-  border-left: 5px solid var(--color-success);
+    background-color: var(--bg-secondary);
+    padding: 30px; /* Added spacing */
+    border-radius: var(--radius-md);
+    border-left: 5px solid var(--color-success);
+}
+
+.current-quiz h2 {
+    text-align: center; /* Center quiz name */
 }
 
 .quiz-date-display {
-  color: var(--text-secondary);
-  font-size: 16px;
-  margin-bottom: 15px;
+    color: var(--text-secondary);
+    font-size: 16px;
+    margin-bottom: 30px; /* Added spacing */
+    text-align: center; /* Center date */
 }
 
 .no-selection {
-  text-align: center;
-  color: var(--text-muted);
-  padding: 40px;
-  font-size: 18px;
+    text-align: center;
+    color: var(--text-muted);
+    padding: 40px;
+    font-size: 18px;
 }
 
 .no-quizzes {
-  color: var(--text-muted);
-  font-style: italic;
-  padding: 20px;
-  text-align: center;
+    color: var(--text-muted);
+    font-style: italic;
+    padding: 20px;
+    text-align: center;
+}
+
+/* ---------------------------------------------------------------- */
+/* Status Control Panel (Centered and Consolidated) */
+/* ---------------------------------------------------------------- */
+
+.game-status-panel {
+    text-align: center; /* Centers the button and status text */
+    margin-bottom: 30px; 
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border-light, #eee);
+}
+
+.game-status-panel p {
+    margin: 10px 0 0;
+}
+
+/* Base styles for status buttons */
+.start-game-btn, .end-game-btn {
+    padding: 12px 25px; 
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    margin: 10px auto 10px; 
+    font-size: 1.1em;
+    font-weight: bold;
+    display: block; /* Allows margin: auto to center the button */
+    width: fit-content; 
+    transition: opacity 0.3s, background-color 0.3s;
+}
+
+.start-game-btn {
+    background-color: #4CAF50; /* Green */
+    color: white;
+}
+
+.end-game-btn {
+    background-color: #f44336; /* Red */
+    color: white;
+}
+
+.start-game-btn:hover, .end-game-btn:hover {
+    opacity: 0.9;
+}
+
+/* ---------------------------------------------------------------- */
+/* Player Management Section Styles */
+/* ---------------------------------------------------------------- */
+
+.player-management {
+    margin-top: 30px;
+    margin-bottom: 30px; 
+    padding: 20px; 
+    border: 1px solid var(--border-color, #533d3d);
+    border-radius: var(--radius-md, 8px);
+    background-color: var(--bg-surface, rgb(49, 36, 36));
+}
+
+.player-management h3 {
+    text-align: center; 
+    color: var(--text-primary);
+    margin-top: 0;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--border-light, #2c2323);
+}
+
+.no-players {
+    color: var(--text-muted);
+    font-style: italic;
+    text-align: center;
+    padding: 15px 0;
+}
+
+.player-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.player-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    margin-bottom: 8px; /* Added more spacing between items */
+    border-radius: 4px;
+    background-color: #572323;
+    border: 1px solid #463434;
+    font-size: 1.1em;
+}
+
+.player-list li:hover {
+    background-color: #443333;
+}
+
+/* Individual Player Removal Button */
+.remove-player-btn {
+    background-color: #ffc107; /* Amber/Warning color */
+    color: #333;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85em;
+    font-weight: bold;
+    transition: background-color 0.3s;
+}
+
+.remove-player-btn:hover {
+    background-color: #e0a800;
+}
+
+/* Clear All Players Button (Reset) */
+.reset-btn {
+    margin-top: 20px; 
+    width: 100%;
+    padding: 12px;
+    background-color: #dc3545; /* Danger Red */
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 1em;
+}
+
+.reset-btn:hover {
+    background-color: #c82333;
 }
