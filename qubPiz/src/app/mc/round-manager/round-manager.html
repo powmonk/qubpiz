@@ -31,10 +31,11 @@
 
     <ul class="round-list">
         <li *ngFor="let round of rounds" 
+            (click)="selectRound(round)"
             [class.active]="selectedRound?.id === round.id"
             [class.is-displayed]="currentDisplayedRoundId === round.id">
             
-            <div class="round-item-main" (click)="selectRound(round)">
+            <div class="round-item-main">
                 <div class="round-info">
                     <strong>Round {{ round.round_order }}: {{ round.name }}</strong>
                     <span class="round-type">({{ round.round_type | titlecase }})</span>
@@ -42,13 +43,13 @@
             </div>
             
             <div class="round-actions">
-                <button (click)="setDisplayRound(round)" 
+                <button (click)="setDisplayRound(round); $event.stopPropagation()" 
                         [class]="currentDisplayedRoundId === round.id ? 'display-active-btn' : 'display-btn'"
                         [disabled]="currentDisplayedRoundId === round.id">
                     {{ currentDisplayedRoundId === round.id ? 'DISPLAYING' : 'Display Round' }}
                 </button>
                 
-                <button (click)="deleteRound(round.id, $event)" class="delete-btn-small">×</button>
+                <button (click)="deleteRound(round.id, $event); $event.stopPropagation()" class="delete-btn-small">×</button>
             </div>
         </li>
     </ul>
