@@ -103,6 +103,19 @@ let currentQuizId = null;
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Add this table creation after the existing tables
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS player_answers (
+        id SERIAL PRIMARY KEY,
+        player_name VARCHAR(100) NOT NULL,
+        question_id INTEGER REFERENCES questions(id) ON DELETE CASCADE,
+        round_id INTEGER REFERENCES rounds(id) ON DELETE CASCADE,
+        answer_text TEXT NOT NULL,
+        submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(player_name, question_id)
+      )
+    `);
     
     // START NEW SCHEMA CHANGES: Add current_round_id column 
     await pool.query(`
@@ -117,6 +130,13 @@ let currentQuizId = null;
     // END NEW SCHEMA CHANGES
 
     console.log('Database tables created successfully');
+
+    await pool.query('UPDATE game_session SET current_round_id = NULL');
+    await pool.query('DELETE FROM players');
+    await pool.query("UPDATE game_session SET status = 'waiting'");
+    
+    console.log('Game state reset: cleared players, active rounds, and reset all games to waiting');
+    
   } catch (err) {
     console.error('Table creation error:', err);
   }
@@ -194,21 +214,44 @@ app.get('/api/quiz/current', async (req, res) => {
 app.get('/api/game/status', async (req, res) => {
   try {
     if (!currentQuizId) {
-      return res.json({ active: false });
-    }
-    // Fetch status and current_round_id
-    const result = await pool.query('SELECT status, current_round_id FROM game_session WHERE id = $1', [currentQuizId]);
-    if (result.rows.length === 0) {
-      res.json({ active: false });
-    } else {
-      const status = result.rows[0].status;
-      const isActive = status === 'active'; 
-      res.json({ 
-        active: isActive, 
-        status: status,
-        current_round_id: result.rows[0].current_round_id // Expose current round ID to lobby
+      return res.json({ 
+        active: false,
+        status: 'waiting',
+        current_round_id: null,
+        current_round_type: null,
+        current_round_name: null
       });
     }
+    
+    // LEFT JOIN with rounds table to fetch round details when a round is active
+    const result = await pool.query(
+      `SELECT gs.status, gs.current_round_id, r.round_type, r.name as round_name
+       FROM game_session gs
+       LEFT JOIN rounds r ON gs.current_round_id = r.id
+       WHERE gs.id = $1`,
+      [currentQuizId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.json({ 
+        active: false,
+        status: 'waiting',
+        current_round_id: null,
+        current_round_type: null,
+        current_round_name: null
+      });
+    }
+    
+    const row = result.rows[0];
+    const isActive = row.status === 'active';
+    
+    res.json({ 
+      active: isActive, 
+      status: row.status,
+      current_round_id: row.current_round_id,
+      current_round_type: row.round_type,
+      current_round_name: row.round_name
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -521,6 +564,68 @@ app.post('/api/questions', async (req, res) => {
       [round_id, question_text, answer, image_url, nextOrder]
     );
     res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete a question
+app.delete('/api/questions/:id', async (req, res) => {
+  try {
+    const result = await pool.query('DELETE FROM questions WHERE id = $1 RETURNING *', [req.params.id]);
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Question not found' });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============= PLAYER ANSWER ENDPOINTS =============
+
+// Submit an answer for a specific question
+app.post('/api/answers/submit', async (req, res) => {
+  const { player_name, question_id, round_id, answer_text } = req.body;
+  
+  try {
+    if (!player_name || !question_id || !round_id || !answer_text) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Use UPSERT to allow players to update their answers
+    await pool.query(
+      `INSERT INTO player_answers (player_name, question_id, round_id, answer_text)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (player_name, question_id)
+       DO UPDATE SET answer_text = $4, submitted_at = CURRENT_TIMESTAMP`,
+      [player_name, question_id, round_id, answer_text]
+    );
+
+    res.json({ success: true, message: 'Answer submitted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get player's answers for a specific round
+app.get('/api/answers/:playerName/:roundId', async (req, res) => {
+  const { playerName, roundId } = req.params;
+  
+  try {
+    const result = await pool.query(
+      `SELECT question_id, answer_text FROM player_answers 
+       WHERE player_name = $1 AND round_id = $2`,
+      [playerName, roundId]
+    );
+    
+    // Return as a map of question_id -> answer_text
+    const answers = {};
+    result.rows.forEach(row => {
+      answers[row.question_id] = row.answer_text;
+    });
+    
+    res.json({ answers });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -3,10 +3,11 @@
   <header>
     <h1>{{ currentRound.name }}</h1>
     <p class="round-type-info">({{ currentRound.round_type | titlecase }} Round)</p>
+    <p class="player-name-display">Playing as: <strong>{{ playerName }}</strong></p>
   </header>
 
   <div class="questions-grid">
-    <div *ngFor="let question of questions" class="question-card">
+    <div *ngFor="let question of questions; trackBy: trackByQuestionId" class="question-card">
       
       <div class="question-content">
         <span class="question-number">{{ question.question_order }}.</span>
@@ -15,6 +16,16 @@
 
       <div *ngIf="question.image_url" class="question-image-thumb">
         <img [src]="getImageUrl(question.image_url)" alt="Question Image">
+      </div>
+
+      <div class="answer-section">
+        <input 
+          type="text"
+          [(ngModel)]="playerAnswers[question.id]"
+          (ngModelChange)="onAnswerChange(question.id)"
+          placeholder="Your answer..."
+          class="answer-input"
+        />
       </div>
 
     </div>

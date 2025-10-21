@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnInit, OnChanges } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -30,7 +30,7 @@ interface Question {
   templateUrl: './question-manager.html',
   styleUrl: './question-manager.css'
 })
-export class QuestionManager implements OnInit {
+export class QuestionManager implements OnInit, OnChanges {
   @Input() currentRound: Round | null = null;
   
   questions: Question[] = [];
@@ -63,12 +63,13 @@ export class QuestionManager implements OnInit {
     }
   }
 
+  // FIXED: Check for 'picture' instead of 'image'
   get isImageRound(): boolean {
-    return this.currentRound?.round_type === 'image';
+    return this.currentRound?.round_type === 'picture';
   }
 
   get isTextRound(): boolean {
-    return this.currentRound?.round_type === 'text';
+    return this.currentRound?.round_type === 'text' || this.currentRound?.round_type === 'music';
   }
 
   loadQuestions() {
@@ -106,9 +107,15 @@ export class QuestionManager implements OnInit {
       question_text: this.newTextQuestion.text,
       answer: this.newTextQuestion.answer,
       image_url: null
-    }).subscribe(() => {
-      this.loadQuestions();
-      this.newTextQuestion = { text: '', answer: '' };
+    }).subscribe({
+      next: () => {
+        this.loadQuestions();
+        this.newTextQuestion = { text: '', answer: '' };
+      },
+      error: (err) => {
+        console.error('Error saving question:', err);
+        alert('Error saving question: ' + (err.error?.error || 'Unknown error'));
+      }
     });
   }
 
@@ -135,16 +142,30 @@ export class QuestionManager implements OnInit {
       question_text: this.imageRoundQuestion,
       answer: this.newImageItem.answer,
       image_url: this.newImageItem.imageUrl
-    }).subscribe(() => {
-      this.loadQuestions();
-      this.newImageItem = { imageUrl: '', answer: '' };
+    }).subscribe({
+      next: () => {
+        this.loadQuestions();
+        this.newImageItem = { imageUrl: '', answer: '' };
+      },
+      error: (err) => {
+        console.error('Error adding image:', err);
+        alert('Error adding image: ' + (err.error?.error || 'Unknown error'));
+      }
     });
   }
 
   deleteQuestion(questionId: number) {
     if (confirm('Delete this question?')) {
-      // TODO: Add delete endpoint to backend
-      console.log('Delete question:', questionId);
+      this.http.delete(`http://localhost:3000/api/questions/${questionId}`)
+        .subscribe({
+          next: () => {
+            this.loadQuestions();
+          },
+          error: (err) => {
+            console.error('Error deleting question:', err);
+            alert('Error deleting question: ' + (err.error?.error || 'Unknown error'));
+          }
+        });
     }
   }
 
