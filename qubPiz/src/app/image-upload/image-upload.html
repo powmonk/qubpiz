@@ -1,0 +1,40 @@
+<div class="image-upload-container">
+  <!-- Show current image if editing -->
+  <div *ngIf="currentImageUrl && !previewUrl" class="current-image">
+    <h4>Current Image</h4>
+    <img [src]="'http://localhost:3000' + currentImageUrl" alt="Current question image" />
+  </div>
+
+  <!-- File input -->
+  <div class="file-input-wrapper">
+    <label class="file-label">
+      <input 
+        type="file" 
+        accept="image/*" 
+        (change)="onFileSelected($event)"
+        [disabled]="uploading"
+      />
+      <span class="file-button">Choose Image</span>
+    </label>
+    <span *ngIf="selectedFile" class="file-name">{{ selectedFile.name }}</span>
+  </div>
+
+  <!-- Preview -->
+  <div *ngIf="previewUrl" class="preview-container">
+    <h4>Preview</h4>
+    <img [src]="previewUrl" alt="Preview" class="preview-image" />
+    <div class="preview-actions">
+      <button (click)="uploadImage()" [disabled]="uploading" class="upload-btn">
+        {{ uploading ? 'Uploading...' : 'Upload Image' }}
+      </button>
+      <button (click)="clearImage()" [disabled]="uploading" class="clear-btn">
+        Clear
+      </button>
+    </div>
+  </div>
+
+  <!-- Error message -->
+  <div *ngIf="uploadError" class="error-message">
+    {{ uploadError }}
+  </div>
+</div>

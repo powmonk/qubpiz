@@ -4,6 +4,8 @@ import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
+
+
 interface Quiz {
   id: number;
   quiz_name: string;
@@ -22,6 +24,7 @@ interface Quiz {
 export class Mc implements OnInit {
   currentQuiz: Quiz | null = null;
   allQuizzes: Quiz[] = [];
+  
   
   showNewQuizForm: boolean = false;
   showQuizList: boolean = false;
@@ -84,4 +87,6 @@ export class Mc implements OnInit {
         });
     }
   }
+ 
+}
 }

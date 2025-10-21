@@ -3,10 +3,49 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Configure multer for image uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, 'uploads', 'quiz-images');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'question-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = /jpeg|jpg|png|gif|webp/;
+  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+  const mimetype = allowedTypes.test(file.mimetype);
+  
+  if (extname && mimetype) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only image files are allowed'));
+  }
+};
+
+const upload = multer({ 
+  storage: storage,
+  fileFilter: fileFilter,
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+});
+
+// Serve uploaded files statically
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Database connection
 const pool = new Pool({
@@ -17,7 +56,6 @@ const pool = new Pool({
   port: process.env.DB_PORT,
 });
 
-// Create tables on startup
 // Track which quiz is currently active
 let currentQuizId = null;
 
@@ -74,7 +112,7 @@ let currentQuizId = null;
 
 // ============= QUIZ ENDPOINTS =============
 
-// Create a new quiz (don't delete old ones)
+// Create a new quiz
 app.post('/api/quiz/create', async (req, res) => {
   const { quiz_name, quiz_date } = req.body;
   try {
@@ -268,6 +306,24 @@ app.delete('/api/rounds/:id', async (req, res) => {
 });
 
 // ============= QUESTION ENDPOINTS =============
+
+// Upload image for question
+app.post('/api/questions/upload-image', upload.single('image'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    
+    // Return the URL path to access this image
+    const imageUrl = `/uploads/quiz-images/${req.file.filename}`;
+    res.json({ 
+      imageUrl: imageUrl,
+      filename: req.file.filename 
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Add a question to a round
 app.post('/api/questions', async (req, res) => {
