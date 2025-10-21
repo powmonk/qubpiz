@@ -94,20 +94,25 @@ export class RoundManager implements OnInit, OnChanges {
     this.roundSelected.emit(round);
   }
 
-  // FIXED METHOD: Set a round to be displayed to players (syntax is now correct)
-  setDisplayRound(round: Round | null) {
-    const roundId = round ? round.id : 0; 
+  // In round-manager.ts
+setDisplayRound(round: Round | null) {
+  const roundId = round ? round.id : 0; 
 
-    this.http.post(`http://localhost:3000/api/game/set-round/${roundId}`, {})
-      .subscribe({
-        next: () => {
-          // Fire event to tell the parent Mc component to refresh currentQuiz
-          this.displayStateChanged.emit();
-        },
-        error: (err) => {
-          console.error('Error setting round display', err);
-          alert('Error setting round display.');
-        }
-      });
+  // SELECT the round so the question manager appears
+  if (round) {
+    this.selectRound(round);
+  }
+
+  this.http.post(`http://localhost:3000/api/game/set-round/${roundId}`, {})
+    .subscribe({
+      next: () => {
+        // Fire event to tell the parent Mc component to refresh currentQuiz
+        this.displayStateChanged.emit();
+      },
+      error: (err) => {
+        console.error('Error setting round display', err);
+        alert('Error setting round display.');
+      }
+    });
   }
 }

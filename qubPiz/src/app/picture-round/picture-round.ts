@@ -23,6 +23,12 @@ interface RoundDisplayData {
   questions: Question[];
 }
 
+// Helper interface for padded grid items
+interface GridItem {
+  question: Question | null;
+  isBlank: boolean;
+}
+
 @Component({
   selector: 'app-picture-round',
   standalone: true,
@@ -49,6 +55,26 @@ export class PictureRound implements OnInit, OnDestroy {
     private router: Router,
     private gameStatusService: GameStatusService
   ) {}
+
+  // Get main question text (shared across all images)
+  get mainQuestionText(): string {
+    return this.questions.length > 0 ? this.questions[0].question_text : '';
+  }
+
+  // Pad questions array to ensure even grid with minimum 2 columns
+  get paddedQuestions(): GridItem[] {
+    const items: GridItem[] = this.questions.map(q => ({
+      question: q,
+      isBlank: false
+    }));
+
+    // Only pad if we have an odd number of questions
+    if (items.length % 2 === 1) {
+      items.push({ question: null, isBlank: true });
+    }
+
+    return items;
+  }
 
   ngOnInit() {
     this.playerName = this.gameStatusService.getCurrentPlayer() || '';
@@ -80,7 +106,8 @@ export class PictureRound implements OnInit, OnDestroy {
     ).subscribe(data => {
       
       if (!data.round || data.round.round_type !== this.expectedType) {
-        this.router.navigate(['/']); 
+        console.log('No round or wrong type, redirecting to lobby');
+        this.router.navigate(['/'], { replaceUrl: true }); 
         return;
       }
       
@@ -99,54 +126,48 @@ export class PictureRound implements OnInit, OnDestroy {
         this.questions = data.questions;
         this.loadPlayerAnswers();
       }
-      // Don't update questions array if round hasn't changed - prevents re-render
       
     }, error => {
       console.error('Error fetching display data:', error);
-      this.router.navigate(['/lobby']);
+      if (error.status === 0 || error.status === 404 || error.status === 500) {
+        console.log('Server may have restarted or no game active, redirecting to lobby');
+      }
+      this.router.navigate(['/'], { replaceUrl: true });
     });
   }
 
-  ngOnDestroy() {
-    if (this.pollSubscription) {
-      this.pollSubscription.unsubscribe();
-    }
-    if (this.answerSubscription) {
-      this.answerSubscription.unsubscribe();
-    }
-  }
-  
   loadPlayerAnswers() {
-    if (!this.currentRound || !this.playerName) return;
-    
-    this.http.get<{ answers: { [key: string]: string } }>(
-      `${this.baseUrl}/api/answers/${this.playerName}/${this.currentRound.id}`
-    ).subscribe(data => {
-      // Only update answers that aren't currently being edited
-      Object.keys(data.answers).forEach(key => {
-        const questionId = parseInt(key);
-        // Don't overwrite if user is currently typing
-        if (!this.playerAnswers[questionId]) {
-          this.playerAnswers[questionId] = data.answers[key];
-        }
-      });
-    });
-  }
-  
-  onAnswerChange(questionId: number) {
-    const answer = this.playerAnswers[questionId] || '';
-    this.answerChanged$.next({ questionId, answer });
-  }
-  
-  saveAnswer(questionId: number, answerText: string) {
-    if (!answerText.trim()) return;
     if (!this.currentRound) return;
 
-    this.http.post(`${this.baseUrl}/api/answers/submit`, {
+    this.http.get<{ answers: Array<{ question_id: number, answer_text: string }> }>(
+      `${this.baseUrl}/api/player/${this.playerName}/round/${this.currentRound.id}/answers`
+    ).subscribe({
+      next: (data) => {
+        this.playerAnswers = {};
+        data.answers.forEach(a => {
+          this.playerAnswers[a.question_id] = a.answer_text;
+        });
+      },
+      error: (err) => {
+        console.error('Error loading answers:', err);
+      }
+    });
+  }
+
+  onAnswerChange(questionId: number) {
+    this.answerChanged$.next({
+      questionId: questionId,
+      answer: this.playerAnswers[questionId] || ''
+    });
+  }
+
+  saveAnswer(questionId: number, answer: string) {
+    if (!this.currentRound) return;
+
+    this.http.post(`${this.baseUrl}/api/player/answer`, {
       player_name: this.playerName,
       question_id: questionId,
-      round_id: this.currentRound.id,
-      answer_text: answerText
+      answer_text: answer
     }).subscribe({
       next: () => {
         console.log(`Answer saved for question ${questionId}`);
@@ -156,16 +177,28 @@ export class PictureRound implements OnInit, OnDestroy {
       }
     });
   }
-  
+
+  trackByItem(index: number, item: GridItem): string {
+    return item.isBlank ? `blank-${index}` : `question-${item.question!.id}`;
+  }
+
+  trackByQuestionId(index: number, question: Question): number {
+    return question.id;
+  }
+
   getImageUrl(path: string | null): string {
     if (path) {
       return `${this.baseUrl}${path}`;
     }
     return '';
   }
-  
-  // Add trackBy function for ngFor to prevent unnecessary re-renders
-  trackByQuestionId(index: number, question: Question): number {
-    return question.id;
+
+  ngOnDestroy() {
+    if (this.pollSubscription) {
+      this.pollSubscription.unsubscribe();
+    }
+    if (this.answerSubscription) {
+      this.answerSubscription.unsubscribe();
+    }
   }
 }

@@ -101,7 +101,11 @@ export class QuestionRound implements OnInit, OnDestroy {
     
   }, error => {
     console.error('Error fetching display data:', error);
-    this.router.navigate(['/lobby']);
+    // Check if it's a server connection error or 404
+    if (error.status === 0 || error.status === 404 || error.status === 500) {
+      console.log('Server may have restarted or no game active, redirecting to lobby');
+    }
+    this.router.navigate(['/'], { replaceUrl: true });
   });
 }
 

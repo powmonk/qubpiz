@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, OnChanges } from '@angular/core';
+import { Component, Input, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -51,13 +51,28 @@ export class QuestionManager implements OnInit, OnChanges {
   constructor(private http: HttpClient) {}
 
   ngOnInit() {
+    console.log('🔍 QuestionManager INIT:', {
+      hasCurrentRound: !!this.currentRound,
+      roundType: this.currentRound?.round_type,
+      isImageRound: this.isImageRound,
+      isTextRound: this.isTextRound
+    });
+    
     if (this.currentRound) {
       this.loadQuestions();
     }
   }
 
-  ngOnChanges() {
-    if (this.currentRound) {
+  ngOnChanges(changes: SimpleChanges) {
+    console.log('🔄 QuestionManager CHANGES:', {
+      hasChanges: !!changes['currentRound'],
+      currentValue: changes['currentRound']?.currentValue,
+      roundType: this.currentRound?.round_type,
+      isImageRound: this.isImageRound,
+      isTextRound: this.isTextRound
+    });
+    
+    if (changes['currentRound'] && this.currentRound) {
       this.loadQuestions();
       this.resetForms();
     }
@@ -87,6 +102,7 @@ export class QuestionManager implements OnInit, OnChanges {
   }
 
   onImageUploaded(imageUrl: string) {
+    console.log('📸 Image uploaded:', imageUrl);
     this.newImageItem.imageUrl = imageUrl;
   }
 
@@ -121,6 +137,12 @@ export class QuestionManager implements OnInit, OnChanges {
 
   // For image rounds - add image with answer to the shared question
   addImageItem() {
+    console.log('🖼️ Adding image item:', {
+      question: this.imageRoundQuestion,
+      imageUrl: this.newImageItem.imageUrl,
+      answer: this.newImageItem.answer
+    });
+
     if (!this.imageRoundQuestion.trim()) {
       alert('Please enter the main question for this picture round');
       return;
