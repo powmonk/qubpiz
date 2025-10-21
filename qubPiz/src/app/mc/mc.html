@@ -1,0 +1,61 @@
+<!-- src/app/mc/mc.html -->
+<div>
+  <h1>MC Control Panel</h1>
+  
+  <div class="quiz-actions">
+    <button (click)="showQuizList = !showQuizList" class="select-btn">
+      {{ showQuizList ? 'Hide Quiz List' : 'Select Quiz' }}
+    </button>
+    <button (click)="showNewQuizForm = !showNewQuizForm" class="create-btn">
+      {{ showNewQuizForm ? 'Cancel' : 'Create New Quiz' }}
+    </button>
+  </div>
+
+  <!-- Quiz List -->
+  <div *ngIf="showQuizList" class="quiz-list">
+    <h3>All Quizzes</h3>
+    <div *ngIf="allQuizzes.length === 0" class="no-quizzes">
+      No quizzes created yet.
+    </div>
+    <ul>
+      <li *ngFor="let quiz of allQuizzes" (click)="selectQuiz(quiz.id)" 
+          [class.active]="currentQuiz?.id === quiz.id">
+        <div class="quiz-item">
+          <strong>{{ quiz.quiz_name }}</strong>
+          <span class="quiz-date">{{ quiz.quiz_date | date:'mediumDate' }}</span>
+          <button (click)="deleteQuiz(quiz.id, $event)" class="delete-btn-small">×</button>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Create New Quiz Form -->
+  <div *ngIf="showNewQuizForm" class="quiz-form">
+    <h3>Create New Quiz</h3>
+    <label>Quiz Name</label>
+    <input 
+      type="text" 
+      [(ngModel)]="newQuizName" 
+      placeholder="e.g., Pub Quiz - October 21st"
+    />
+    
+    <label>Quiz Date</label>
+    <input 
+      type="date" 
+      [(ngModel)]="newQuizDate"
+    />
+    
+    <button (click)="createQuiz()" class="save-btn">Create Quiz</button>
+  </div>
+
+  <!-- Current Quiz Info -->
+  <div *ngIf="currentQuiz" class="current-quiz">
+    <h2>{{ currentQuiz.quiz_name }}</h2>
+    <p class="quiz-date-display">{{ currentQuiz.quiz_date | date:'fullDate' }}</p>
+    <p>Now you can add rounds and questions to this quiz.</p>
+  </div>
+
+  <div *ngIf="!currentQuiz && !showNewQuizForm && !showQuizList" class="no-selection">
+    <p>Select an existing quiz or create a new one to get started.</p>
+  </div>
+</div>

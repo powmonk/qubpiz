@@ -1,0 +1,27 @@
+<!-- src/app/lobby/lobby.html -->
+<div *ngIf="!gameActive" class="waiting-screen">
+  <h1>No Active Game</h1>
+  <p>Waiting for MC to start a game...</p>
+</div>
+
+<div *ngIf="gameActive" class="lobby-container">
+  <div class="left-section">
+    <h1>Quiz Lobby</h1>
+    <form (ngSubmit)="onSubmit()">
+      <input 
+        type="text" 
+        [(ngModel)]="playerName"
+        name="playerName"
+        placeholder="Enter your name"
+      />
+      <button type="submit">Join Game</button>
+    </form>
+  </div>
+  
+  <div class="right-section">
+    <h3>Players Joined ({{ players.length }})</h3>
+    <ul>
+      <li *ngFor="let player of players">{{ player }}</li>
+    </ul>
+  </div>
+</div>
