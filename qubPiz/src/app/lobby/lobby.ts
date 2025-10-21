@@ -1,4 +1,4 @@
-// src/app/lobby/lobby.ts
+// powmonk/qubpiz/qubpiz-main/qubPiz/src/app/lobby/lobby.ts
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -7,7 +7,7 @@ import { CommonModule } from '@angular/common';
 
 // NEW INTERFACE: Match updated server response
 interface GameStatus {
-  active: boolean; // Lobby status (true if 'active')
+  active: boolean; // Lobby join status (true if 'active')
   status: string; // The game session status ('waiting', 'active', 'closed')
   current_round_id: number | null;
   current_round_type: string | null;
@@ -25,6 +25,8 @@ export class Lobby implements OnInit {
   playerName: string = '';
   players: string[] = [];
   gameActive: boolean = false;
+  // NEW: Flag to track if the quiz is running (active or closed)
+  quizRunning: boolean = false; 
 
   constructor(
     private router: Router,
@@ -38,24 +40,26 @@ export class Lobby implements OnInit {
   }
 
   checkGameStatus() {
-    // UPDATED: Use new GameStatus interface
-    this.http.get<GameStatus>('http://localhost:3000/api/game/status') //
+    this.http.get<GameStatus>('http://localhost:3000/api/game/status')
       .subscribe(data => {
-        // Use 'active' flag from server for showing the join form
-        this.gameActive = data.active; //
+        
+        // FIX 1: 'gameActive' is only true when the lobby is open (status is 'active')
+        this.gameActive = data.status === 'active'; 
 
-        if (this.gameActive) { //
-          this.loadPlayers(); //
+        // FIX 2: 'quizRunning' is true if status is 'active' OR 'closed'
+        this.quizRunning = data.status === 'active' || data.status === 'closed';
+
+        if (this.gameActive) { 
+          this.loadPlayers(); 
         }
         
-        // NEW REDIRECTION LOGIC: Redirect if a round is active for display
+        // REDIRECTION LOGIC: Check if a round is active for display
         if (data.current_round_id && data.current_round_type) {
           let routePath: string;
           
           if (data.current_round_type === 'picture') {
             routePath = '/round/picture';
           } else {
-            // All non-picture types go to QuestionRound
             routePath = '/round/question';
           }
 
@@ -84,8 +88,6 @@ export class Lobby implements OnInit {
   onSubmit() {
     this.http.post('http://localhost:3000/api/join', { name: this.playerName })
       .subscribe(() => {
-        // UPDATED: Navigate to the root path. 
-        // The polling in checkGameStatus will immediately redirect to the correct round if one is active.
         this.router.navigate(['/']); 
       });
   }

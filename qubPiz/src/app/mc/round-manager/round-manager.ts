@@ -25,8 +25,8 @@ export class RoundManager implements OnInit, OnChanges {
   @Input() currentQuizId: number | null = null;
   // The ID of the round currently being displayed to players (from MC parent)
   @Input() currentDisplayedRoundId: number | null = null;
-
   @Output() roundSelected = new EventEmitter<Round>();
+  @Output() displayStateChanged = new EventEmitter<void>();
 
   rounds: Round[] = [];
   selectedRound: Round | null = null;
@@ -96,14 +96,13 @@ export class RoundManager implements OnInit, OnChanges {
 
   // FIXED METHOD: Set a round to be displayed to players (syntax is now correct)
   setDisplayRound(round: Round | null) {
-    // Use 0 to signify clearing the display (handled by server logic)
     const roundId = round ? round.id : 0; 
 
     this.http.post(`http://localhost:3000/api/game/set-round/${roundId}`, {})
       .subscribe({
         next: () => {
-          // This relies on the Mc parent component to reload the Quiz state 
-          // and automatically pass the updated currentDisplayedRoundId back here.
+          // Fire event to tell the parent Mc component to refresh currentQuiz
+          this.displayStateChanged.emit();
         },
         error: (err) => {
           console.error('Error setting round display', err);

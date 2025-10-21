@@ -11,7 +11,7 @@ interface Quiz {
   quiz_date: string;
   status: string;
   created_at: string;
-  current_round_id: number | null; // <--- NEW PROPERTY
+  current_round_id: number | null; // Confirmed property exists
 }
 
 interface Round {
@@ -45,6 +45,11 @@ export class Mc implements OnInit {
   players: string[] = [];
   
   constructor(private http: HttpClient) {}
+
+  handleDisplayStateChanged() {
+    this.loadCurrentQuiz();
+    this.loadPlayers(); // Good to reload player list too
+  }
 
   ngOnInit() {
     this.loadCurrentQuiz();

@@ -78,7 +78,8 @@
     <app-round-manager 
       [currentQuizId]="currentQuiz.id"
       [currentDisplayedRoundId]="currentQuiz.current_round_id"
-      (roundSelected)="onRoundSelected($event)">
+      (roundSelected)="onRoundSelected($event)"
+      (displayStateChanged)="handleDisplayStateChanged()">
     </app-round-manager>
     
     <app-question-manager 
