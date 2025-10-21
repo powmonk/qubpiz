@@ -86,50 +86,6 @@
       [currentRound]="selectedRound">
     </app-question-manager>
   </div>
-  <div class="round-manager-container">
-    <h3>Rounds</h3>
-    
-    <div class="round-control-buttons">
-      <button (click)="showNewRoundForm = !showNewRoundForm" class="add-round-btn">
-        {{ showNewRoundForm ? 'Cancel' : '+ Add New Round' }}
-      </button>
-
-      <button *ngIf="currentDisplayedRoundId" (click)="setDisplayRound(null)" class="clear-display-btn">
-        Clear Player Display
-      </button>
-    </div>
-    
-    <div *ngIf="showNewRoundForm" class="round-form">
-        </div>
-    
-    <div *ngIf="rounds.length === 0" class="no-rounds">
-        No rounds created yet.
-    </div>
-
-    <ul class="round-list">
-        <li *ngFor="let round of rounds" 
-            [class.active]="selectedRound?.id === round.id"
-            [class.is-displayed]="currentDisplayedRoundId === round.id">
-            
-            <div class="round-item-main" (click)="selectRound(round)">
-                <div class="round-info">
-                    <strong>Round {{ round.round_order }}: {{ round.name }}</strong>
-                    <span class="round-type">({{ round.round_type | titlecase }})</span>
-                </div>
-            </div>
-            
-            <div class="round-actions">
-                <button (click)="setDisplayRound(round)" 
-                        [class]="currentDisplayedRoundId === round.id ? 'display-active-btn' : 'display-btn'"
-                        [disabled]="currentDisplayedRoundId === round.id">
-                    {{ currentDisplayedRoundId === round.id ? 'DISPLAYING' : 'Display Round' }}
-                </button>
-                
-                <button (click)="deleteRound(round.id, $event)" class="delete-btn-small">×</button>
-            </div>
-        </li>
-    </ul>
-</div>
 
   <div *ngIf="!currentQuiz && !showNewQuizForm && !showQuizList" class="no-selection">
     <p>Select an existing quiz or create a new one to get started.</p>

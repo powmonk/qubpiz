@@ -1,1 +1,22 @@
-<p>question-round works!</p>
+<div *ngIf="currentRound" class="display-container question-display">
+  
+  <header>
+    <h1>{{ currentRound.name }}</h1>
+    <p class="round-type-info">({{ currentRound.round_type | titlecase }} Round)</p>
+  </header>
+
+  <div class="questions-grid">
+    <div *ngFor="let question of questions" class="question-card">
+      
+      <div class="question-content">
+        <span class="question-number">{{ question.question_order }}.</span>
+        <span class="question-text">{{ question.question_text }}</span>
+      </div>
+
+      <div *ngIf="question.image_url" class="question-image-thumb">
+        <img [src]="getImageUrl(question.image_url)" alt="Question Image">
+      </div>
+
+    </div>
+  </div>
+</div>

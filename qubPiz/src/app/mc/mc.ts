@@ -11,6 +11,7 @@ interface Quiz {
   quiz_date: string;
   status: string;
   created_at: string;
+  current_round_id: number | null; // <--- NEW PROPERTY
 }
 
 interface Round {

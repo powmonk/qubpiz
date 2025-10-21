@@ -1,46 +1,55 @@
-<div class="round-manager">
-  <div class="round-header">
+<div class="round-manager-container">
     <h3>Rounds</h3>
-    <button (click)="showNewRoundForm = !showNewRoundForm" class="create-round-btn">
-      {{ showNewRoundForm ? 'Cancel' : '+ Add Round' }}
-    </button>
-  </div>
-
-  <!-- Create New Round Form -->
-  <div *ngIf="showNewRoundForm" class="round-form">
-    <label>Round Name</label>
-    <input 
-      type="text" 
-      [(ngModel)]="newRound.name" 
-      placeholder="e.g., General Knowledge, Picture Round"
-    />
     
-    <label>Round Type</label>
-    <select [(ngModel)]="newRound.type">
-      <option value="text">Text Based</option>
-      <option value="image">Image Based</option>
-    </select>
-    
-    <button (click)="createRound()" class="save-btn">Create Round</button>
-  </div>
+    <div class="round-control-buttons">
+      <button (click)="showNewRoundForm = !showNewRoundForm" class="add-round-btn">
+        {{ showNewRoundForm ? 'Cancel' : '+ Add New Round' }}
+      </button>
 
-  <!-- Rounds List -->
-  <div class="rounds-list">
-    <div *ngIf="rounds.length === 0" class="no-rounds">
-      No rounds created yet. Click "Add Round" to get started.
+      <button *ngIf="currentDisplayedRoundId" (click)="setDisplayRound(null)" class="clear-display-btn">
+        Clear Player Display
+      </button>
+    </div>
+    
+    <div *ngIf="showNewRoundForm" class="round-form">
+      <label>Round Name</label>
+      <input type="text" [(ngModel)]="newRoundName" placeholder="e.g., General Knowledge" required />
+      
+      <label>Round Type</label>
+      <select [(ngModel)]="newRoundType">
+          <option value="text">Text (General Question)</option>
+          <option value="picture">Picture Round</option>
+          <option value="music">Music Round (Text/Audio)</option>
+      </select>
+      
+      <button (click)="createRound()" class="save-btn">Create Round</button>
+    </div>
+    
+    <div *ngIf="rounds.length === 0 && !showNewRoundForm" class="no-rounds">
+        No rounds created yet.
     </div>
 
-    <div 
-      *ngFor="let round of rounds" 
-      (click)="selectRound(round)" 
-      class="round-item"
-      [class.active]="selectedRound?.id === round.id"
-    >
-      <div class="round-info">
-        <strong>{{ round.name }}</strong>
-        <span class="round-type">{{ round.round_type }}</span>
-      </div>
-      <button (click)="deleteRound(round.id, $event)" class="delete-btn-small">×</button>
-    </div>
-  </div>
+    <ul class="round-list">
+        <li *ngFor="let round of rounds" 
+            [class.active]="selectedRound?.id === round.id"
+            [class.is-displayed]="currentDisplayedRoundId === round.id">
+            
+            <div class="round-item-main" (click)="selectRound(round)">
+                <div class="round-info">
+                    <strong>Round {{ round.round_order }}: {{ round.name }}</strong>
+                    <span class="round-type">({{ round.round_type | titlecase }})</span>
+                </div>
+            </div>
+            
+            <div class="round-actions">
+                <button (click)="setDisplayRound(round)" 
+                        [class]="currentDisplayedRoundId === round.id ? 'display-active-btn' : 'display-btn'"
+                        [disabled]="currentDisplayedRoundId === round.id">
+                    {{ currentDisplayedRoundId === round.id ? 'DISPLAYING' : 'Display Round' }}
+                </button>
+                
+                <button (click)="deleteRound(round.id, $event)" class="delete-btn-small">×</button>
+            </div>
+        </li>
+    </ul>
 </div>
