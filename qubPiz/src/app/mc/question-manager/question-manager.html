@@ -1,1 +1,99 @@
-<p>question-manager works!</p>
+<div class="question-manager" *ngIf="currentRound">
+  <h3>Questions for {{ currentRound.name }}</h3>
+  <p class="round-type-badge">
+    Round Type: <strong>{{ currentRound.round_type }}</strong>
+  </p>
+
+  <!-- TEXT ROUND: Traditional Q&A -->
+  <div *ngIf="isTextRound" class="question-form">
+    <h4>Add New Question</h4>
+    
+    <label>Question Text</label>
+    <input 
+      type="text"
+      [(ngModel)]="newTextQuestion.text" 
+      placeholder="Enter the question"
+    />
+    
+    <label>Answer</label>
+    <input 
+      type="text"
+      [(ngModel)]="newTextQuestion.answer" 
+      placeholder="Enter the answer"
+    />
+    
+    <button (click)="saveTextQuestion()" class="add-btn">Add Question</button>
+  </div>
+
+  <!-- IMAGE ROUND: One question, multiple images -->
+  <div *ngIf="isImageRound" class="question-form">
+    <h4>Picture Round Setup</h4>
+    
+    <label>Main Question (applies to all pictures)</label>
+    <input 
+      type="text"
+      [(ngModel)]="imageRoundQuestion" 
+      placeholder="e.g., 'Name these celebrities' or 'Identify these landmarks'"
+    />
+
+    <div class="image-item-form">
+      <h5>Add Picture</h5>
+      
+      <label>Upload Image</label>
+      <app-image-upload (imageUploaded)="onImageUploaded($event)"></app-image-upload>
+      
+      <label>Answer for this image</label>
+      <input 
+        type="text"
+        [(ngModel)]="newImageItem.answer" 
+        placeholder="Enter the answer"
+      />
+      
+      <button (click)="addImageItem()" class="add-btn">Add Picture</button>
+    </div>
+  </div>
+
+  <!-- Display Existing Questions -->
+  <div class="questions-list">
+    <h4 *ngIf="isTextRound">Questions ({{ questions.length }})</h4>
+    <h4 *ngIf="isImageRound">Pictures ({{ questions.length }})</h4>
+    
+    <div *ngIf="questions.length === 0" class="no-questions">
+      No {{ isImageRound ? 'pictures' : 'questions' }} added yet.
+    </div>
+
+    <!-- TEXT ROUND DISPLAY -->
+    <div *ngIf="isTextRound">
+      <div *ngFor="let q of questions; let i = index" class="question-item">
+        <div class="question-number">Q{{ i + 1 }}</div>
+        <div class="question-content">
+          <p class="question-text"><strong>Q:</strong> {{ q.question_text }}</p>
+          <p class="question-answer"><strong>A:</strong> {{ q.answer }}</p>
+        </div>
+        <div class="question-actions">
+          <button (click)="deleteQuestion(q.id)" class="delete-btn-small">×</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- IMAGE ROUND DISPLAY -->
+    <div *ngIf="isImageRound">
+      <div class="image-round-question">
+        <strong>Question:</strong> {{ questions[0]?.question_text || 'Not set yet' }}
+      </div>
+      
+      <div class="image-grid">
+        <div *ngFor="let q of questions; let i = index" class="image-item">
+          <div class="image-number">{{ i + 1 }}</div>
+          <img 
+            [src]="'http://localhost:3000' + q.image_url" 
+            class="image-thumbnail" 
+            alt="Question image"
+          />
+          <p class="image-answer"><strong>A:</strong> {{ q.answer }}</p>
+          <button (click)="deleteQuestion(q.id)" class="delete-btn-small">×</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

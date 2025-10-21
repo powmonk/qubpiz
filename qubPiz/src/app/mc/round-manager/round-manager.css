@@ -1,0 +1,76 @@
+/* Round Manager - Component-specific layout only */
+
+.round-manager {
+  margin-top: 30px;
+  padding: 25px;
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-success);
+}
+
+.round-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.round-header h3 {
+  color: var(--color-success);
+  margin: 0;
+}
+
+.round-form {
+  background-color: var(--bg-tertiary);
+  padding: 20px;
+  border-radius: var(--radius-md);
+  margin-bottom: 20px;
+}
+
+.rounds-list {
+  margin-top: 20px;
+}
+
+.round-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  margin-bottom: 10px;
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 2px solid transparent;
+}
+
+.round-item:hover {
+  border-color: var(--color-success);
+  transform: translateX(5px);
+}
+
+.round-item.active {
+  border-color: var(--color-success);
+  background-color: rgba(40, 167, 69, 0.15);
+}
+
+.round-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex: 1;
+}
+
+.round-info strong {
+  color: var(--text-primary);
+}
+
+.round-type {
+  display: inline-block;
+  padding: 4px 12px;
+  background-color: var(--color-primary);
+  color: white;
+  border-radius: 12px;
+  font-size: 12px;
+  text-transform: capitalize;
+}

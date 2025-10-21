@@ -1,10 +1,9 @@
-// src/app/mc/mc.ts
 import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-
-
+import { RoundManager } from './round-manager/round-manager';
+import { QuestionManager } from './question-manager/question-manager';
 
 interface Quiz {
   id: number;
@@ -14,17 +13,26 @@ interface Quiz {
   created_at: string;
 }
 
+interface Round {
+  id: number;
+  game_session_id: number;
+  name: string;
+  round_type: string;
+  round_order: number;
+  created_at: string;
+}
+
 @Component({
   selector: 'app-mc',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RoundManager, QuestionManager],
   templateUrl: './mc.html',
   styleUrl: './mc.css'
 })
 export class Mc implements OnInit {
   currentQuiz: Quiz | null = null;
   allQuizzes: Quiz[] = [];
-  
+  selectedRound: Round | null = null;
   
   showNewQuizForm: boolean = false;
   showQuizList: boolean = false;
@@ -66,6 +74,7 @@ export class Mc implements OnInit {
       this.loadAllQuizzes();
       this.newQuizName = '';
       this.showNewQuizForm = false;
+      this.selectedRound = null;
     });
   }
 
@@ -74,6 +83,7 @@ export class Mc implements OnInit {
       .subscribe(() => {
         this.loadCurrentQuiz();
         this.showQuizList = false;
+        this.selectedRound = null;
       });
   }
 
@@ -84,9 +94,12 @@ export class Mc implements OnInit {
         .subscribe(() => {
           this.loadCurrentQuiz();
           this.loadAllQuizzes();
+          this.selectedRound = null;
         });
     }
   }
- 
-}
+
+  onRoundSelected(round: Round) {
+    this.selectedRound = round;
+  }
 }

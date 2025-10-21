@@ -1,4 +1,3 @@
-<!-- src/app/mc/mc.html -->
 <div>
   <h1>MC Control Panel</h1>
   
@@ -52,11 +51,21 @@
   <div *ngIf="currentQuiz" class="current-quiz">
     <h2>{{ currentQuiz.quiz_name }}</h2>
     <p class="quiz-date-display">{{ currentQuiz.quiz_date | date:'fullDate' }}</p>
-    <p>Now you can add rounds and questions to this quiz.</p>
+    
+    <!-- Round Manager -->
+    <app-round-manager 
+      [currentQuizId]="currentQuiz.id"
+      (roundSelected)="onRoundSelected($event)">
+    </app-round-manager>
+    
+    <!-- Question Manager (shows when round selected) -->
+    <app-question-manager 
+      *ngIf="selectedRound"
+      [currentRound]="selectedRound">
+    </app-question-manager>
   </div>
 
   <div *ngIf="!currentQuiz && !showNewQuizForm && !showQuizList" class="no-selection">
     <p>Select an existing quiz or create a new one to get started.</p>
   </div>
 </div>
-

@@ -1,1 +1,46 @@
-<p>round-manager works!</p>
+<div class="round-manager">
+  <div class="round-header">
+    <h3>Rounds</h3>
+    <button (click)="showNewRoundForm = !showNewRoundForm" class="create-round-btn">
+      {{ showNewRoundForm ? 'Cancel' : '+ Add Round' }}
+    </button>
+  </div>
+
+  <!-- Create New Round Form -->
+  <div *ngIf="showNewRoundForm" class="round-form">
+    <label>Round Name</label>
+    <input 
+      type="text" 
+      [(ngModel)]="newRound.name" 
+      placeholder="e.g., General Knowledge, Picture Round"
+    />
+    
+    <label>Round Type</label>
+    <select [(ngModel)]="newRound.type">
+      <option value="text">Text Based</option>
+      <option value="image">Image Based</option>
+    </select>
+    
+    <button (click)="createRound()" class="save-btn">Create Round</button>
+  </div>
+
+  <!-- Rounds List -->
+  <div class="rounds-list">
+    <div *ngIf="rounds.length === 0" class="no-rounds">
+      No rounds created yet. Click "Add Round" to get started.
+    </div>
+
+    <div 
+      *ngFor="let round of rounds" 
+      (click)="selectRound(round)" 
+      class="round-item"
+      [class.active]="selectedRound?.id === round.id"
+    >
+      <div class="round-info">
+        <strong>{{ round.name }}</strong>
+        <span class="round-type">{{ round.round_type }}</span>
+      </div>
+      <button (click)="deleteRound(round.id, $event)" class="delete-btn-small">×</button>
+    </div>
+  </div>
+</div>

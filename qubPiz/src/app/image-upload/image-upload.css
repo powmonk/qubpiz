@@ -1,13 +1,15 @@
+/* Image Upload - Component-specific layout only */
+
 .image-upload-container {
   padding: 20px;
-  background-color: #f9f9f9;
-  border-radius: 8px;
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-md);
   margin-bottom: 20px;
 }
 
 .current-image h4,
 .preview-container h4 {
-  color: #666;
+  color: var(--text-secondary);
   margin-bottom: 10px;
   font-size: 14px;
 }
@@ -15,46 +17,12 @@
 .current-image img {
   max-width: 300px;
   max-height: 200px;
-  border-radius: 5px;
-  border: 2px solid #ddd;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--border-color);
 }
 
 .file-input-wrapper {
   margin-bottom: 15px;
-}
-
-.file-label {
-  display: inline-block;
-  cursor: pointer;
-}
-
-.file-label input[type="file"] {
-  display: none;
-}
-
-.file-button {
-  display: inline-block;
-  padding: 10px 20px;
-  background-color: #007bff;
-  color: white;
-  border-radius: 5px;
-  font-size: 14px;
-  transition: background-color 0.2s;
-}
-
-.file-button:hover {
-  background-color: #0056b3;
-}
-
-.file-label input[disabled] + .file-button {
-  background-color: #ccc;
-  cursor: not-allowed;
-}
-
-.file-name {
-  margin-left: 15px;
-  color: #666;
-  font-size: 14px;
 }
 
 .preview-container {
@@ -64,8 +32,8 @@
 .preview-image {
   max-width: 400px;
   max-height: 300px;
-  border-radius: 5px;
-  border: 2px solid #007bff;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--color-primary);
   margin-bottom: 15px;
   display: block;
 }
@@ -73,52 +41,4 @@
 .preview-actions {
   display: flex;
   gap: 10px;
-}
-
-.upload-btn {
-  padding: 10px 20px;
-  background-color: #28a745;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.upload-btn:hover {
-  background-color: #218838;
-}
-
-.upload-btn:disabled {
-  background-color: #ccc;
-  cursor: not-allowed;
-}
-
-.clear-btn {
-  padding: 10px 20px;
-  background-color: #dc3545;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.clear-btn:hover {
-  background-color: #c82333;
-}
-
-.clear-btn:disabled {
-  background-color: #ccc;
-  cursor: not-allowed;
-}
-
-.error-message {
-  margin-top: 10px;
-  padding: 10px;
-  background-color: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
-  border-radius: 5px;
-  font-size: 14px;
 }
