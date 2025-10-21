@@ -72,6 +72,8 @@ export class Lobby implements OnInit {
             // Use createUrlTree and navigateByUrl to force Angular routing execution
             const newUrl = this.router.createUrlTree([routePath], { 
                 queryParamsHandling: 'merge', // Keep parameters like name=...
+                // CRITICAL ADDITION: Merge the current query params, including the 'name'
+                queryParams: this.router.routerState.snapshot.root.queryParams
             }).toString();
 
             // Force navigation execution and prevent history stacking
@@ -96,8 +98,12 @@ export class Lobby implements OnInit {
   onSubmit() {
     this.http.post('http://localhost:3000/api/join', { name: this.playerName })
       .subscribe(() => {
-        // Navigate to root. The next poll will immediately pick up the active round and redirect.
-        this.router.navigate(['/']); 
+        // CRITICAL FIX: After successfully joining, immediately force a status check.
+        // This triggers the redirection logic directly, preventing the 3-second delay 
+        // that allows the 'Game In Progress' UI state to be displayed.
+        this.checkGameStatus();
+        // The previous 'this.router.navigate(['/'])' is now replaced by the guaranteed 
+        // redirection within checkGameStatus().
       });
   }
 }
