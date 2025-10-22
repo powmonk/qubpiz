@@ -117,9 +117,9 @@ let currentQuizId = null;
       )
     `);
     
-    // START NEW SCHEMA CHANGES: Add current_round_id column 
+    // START NEW SCHEMA CHANGES: Add current_round_id column
     await pool.query(`
-      DO $$ 
+      DO $$
       BEGIN
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='game_session' AND column_name='current_round_id') THEN
           ALTER TABLE game_session ADD COLUMN current_round_id INTEGER REFERENCES rounds(id) ON DELETE SET NULL;
@@ -127,6 +127,54 @@ let currentQuizId = null;
       END
       $$;
     `);
+
+    // Create marking_assignments table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS marking_assignments (
+        id SERIAL PRIMARY KEY,
+        game_session_id INTEGER REFERENCES game_session(id) ON DELETE CASCADE,
+        marker_name VARCHAR(100) NOT NULL,
+        markee_name VARCHAR(100) NOT NULL,
+        round_id INTEGER REFERENCES rounds(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(marker_name, round_id)
+      )
+    `);
+
+    // Create peer_marks table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS peer_marks (
+        id SERIAL PRIMARY KEY,
+        assignment_id INTEGER REFERENCES marking_assignments(id) ON DELETE CASCADE,
+        question_id INTEGER REFERENCES questions(id) ON DELETE CASCADE,
+        score DECIMAL(3,1) NOT NULL CHECK (score IN (0, 0.5, 1)),
+        marked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(assignment_id, question_id)
+      )
+    `);
+
+    // Add marking_mode column to game_session
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='game_session' AND column_name='marking_mode') THEN
+          ALTER TABLE game_session ADD COLUMN marking_mode BOOLEAN DEFAULT FALSE;
+        END IF;
+      END
+      $$;
+    `);
+
+    // Create triggered_rounds table to track which rounds have been sent for marking
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS triggered_rounds (
+        id SERIAL PRIMARY KEY,
+        game_session_id INTEGER REFERENCES game_session(id) ON DELETE CASCADE,
+        round_id INTEGER REFERENCES rounds(id) ON DELETE CASCADE,
+        triggered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(game_session_id, round_id)
+      )
+    `);
+
     // END NEW SCHEMA CHANGES
 
     console.log('Database tables created successfully');
@@ -214,7 +262,7 @@ app.get('/api/quiz/current', async (req, res) => {
 app.get('/api/game/status', async (req, res) => {
   try {
     if (!currentQuizId) {
-      return res.json({ 
+      return res.json({
         active: false,
         status: 'waiting',
         current_round_id: null,
@@ -225,32 +273,34 @@ app.get('/api/game/status', async (req, res) => {
     
     // LEFT JOIN with rounds table to fetch round details when a round is active
     const result = await pool.query(
-      `SELECT gs.status, gs.current_round_id, r.round_type, r.name as round_name
+      `SELECT gs.status, gs.current_round_id, gs.marking_mode, r.round_type, r.name as round_name
        FROM game_session gs
        LEFT JOIN rounds r ON gs.current_round_id = r.id
        WHERE gs.id = $1`,
       [currentQuizId]
     );
-    
+
     if (result.rows.length === 0) {
-      return res.json({ 
+      return res.json({
         active: false,
         status: 'waiting',
         current_round_id: null,
         current_round_type: null,
-        current_round_name: null
+        current_round_name: null,
+        marking_mode: false
       });
     }
-    
+
     const row = result.rows[0];
     const isActive = row.status === 'active';
-    
-    res.json({ 
-      active: isActive, 
+
+    res.json({
+      active: isActive,
       status: row.status,
       current_round_id: row.current_round_id,
       current_round_type: row.round_type,
-      current_round_name: row.round_name
+      current_round_name: row.round_name,
+      marking_mode: row.marking_mode || false
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -295,9 +345,11 @@ app.post('/api/game/toggle-status', async (req, res) => {
         updateQuery = 'UPDATE game_session SET status = $1, current_round_id = NULL WHERE id = $2 RETURNING *';
     }
     
-    // If we transition to 'waiting' (e.g. game over), clear active round
+    // If we transition to 'waiting' (e.g. game over), clear active round AND flush players
     if (newStatus === 'waiting') {
         updateQuery = 'UPDATE game_session SET status = $1, current_round_id = NULL WHERE id = $2 RETURNING *';
+        // Flush all players when game ends
+        await pool.query('DELETE FROM players');
     }
 
     // Update the status in the database
@@ -305,7 +357,7 @@ app.post('/api/game/toggle-status', async (req, res) => {
       updateQuery,
       [newStatus, currentQuizId]
     );
-    
+
     res.json({ quiz: updateResult.rows[0], message: `Game status set to ${newStatus}` });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -642,6 +694,306 @@ app.get('/api/rounds/:roundId/questions', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// ============= MARKING ENDPOINTS =============
+
+// MC triggers marking for ALL rounds in the current quiz
+app.post('/api/marking/trigger-all-rounds', async (req, res) => {
+  try {
+    if (!currentQuizId) {
+      return res.status(400).json({ error: 'No active quiz selected' });
+    }
+
+    // Get all rounds for this quiz
+    const roundsResult = await pool.query(
+      'SELECT id FROM rounds WHERE game_session_id = $1 ORDER BY round_order',
+      [currentQuizId]
+    );
+
+    if (roundsResult.rows.length === 0) {
+      return res.status(400).json({ error: 'No rounds found for this quiz' });
+    }
+
+    // Get all players who submitted any answers for this quiz
+    const playersResult = await pool.query(
+      `SELECT DISTINCT player_name FROM player_answers pa
+       JOIN rounds r ON pa.round_id = r.id
+       WHERE r.game_session_id = $1
+       ORDER BY player_name`,
+      [currentQuizId]
+    );
+
+    const allPlayers = playersResult.rows.map(row => row.player_name);
+
+    if (allPlayers.length < 2) {
+      return res.status(400).json({ error: 'Need at least 2 players with answers to create marking assignments' });
+    }
+
+    // Shuffle players randomly ONCE for the entire quiz
+    const shuffled = [...allPlayers].sort(() => Math.random() - 0.5);
+
+    // Create anonymous labels for each player (Player A, Player B, etc.)
+    const anonymousLabels = {};
+    shuffled.forEach((playerName, index) => {
+      anonymousLabels[playerName] = `Player ${String.fromCharCode(65 + index)}`; // A, B, C, etc.
+    });
+
+    let totalAssignments = 0;
+
+    // Create the same circular assignments for each round
+    for (const roundRow of roundsResult.rows) {
+      const roundId = roundRow.id;
+
+      // Check if already triggered
+      const existingTrigger = await pool.query(
+        'SELECT id FROM triggered_rounds WHERE game_session_id = $1 AND round_id = $2',
+        [currentQuizId, roundId]
+      );
+
+      if (existingTrigger.rows.length > 0) {
+        continue; // Skip already triggered rounds
+      }
+
+      // Get players who answered THIS round
+      const roundPlayersResult = await pool.query(
+        'SELECT DISTINCT player_name FROM player_answers WHERE round_id = $1',
+        [roundId]
+      );
+
+      const roundPlayers = new Set(roundPlayersResult.rows.map(row => row.player_name));
+
+      // Create assignments only for players who participated in this round
+      for (let i = 0; i < shuffled.length; i++) {
+        const marker = shuffled[i];
+        const markee = shuffled[(i + 1) % shuffled.length];
+
+        // Only create assignment if both marker and markee participated
+        if (roundPlayers.has(marker) && roundPlayers.has(markee)) {
+          const result = await pool.query(
+            `INSERT INTO marking_assignments (game_session_id, marker_name, markee_name, round_id)
+             VALUES ($1, $2, $3, $4)
+             ON CONFLICT (marker_name, round_id) DO NOTHING
+             RETURNING *`,
+            [currentQuizId, marker, markee, roundId]
+          );
+
+          if (result.rows.length > 0) {
+            totalAssignments++;
+          }
+        }
+      }
+
+      // Mark this round as triggered
+      await pool.query(
+        'INSERT INTO triggered_rounds (game_session_id, round_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [currentQuizId, roundId]
+      );
+    }
+
+    res.json({
+      success: true,
+      message: `Marking assignments created for all rounds (${totalAssignments} total assignments)`,
+      assignments: totalAssignments,
+      rounds: roundsResult.rows.length
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// MC enables/disables marking mode
+app.post('/api/marking/toggle-mode', async (req, res) => {
+  try {
+    if (!currentQuizId) {
+      return res.status(400).json({ error: 'No active quiz selected' });
+    }
+
+    const currentResult = await pool.query(
+      'SELECT marking_mode FROM game_session WHERE id = $1',
+      [currentQuizId]
+    );
+
+    const currentMode = currentResult.rows[0]?.marking_mode || false;
+    const newMode = !currentMode;
+
+    await pool.query(
+      'UPDATE game_session SET marking_mode = $1 WHERE id = $2',
+      [newMode, currentQuizId]
+    );
+
+    res.json({
+      marking_mode: newMode,
+      message: `Marking mode ${newMode ? 'enabled' : 'disabled'}`
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get marking assignments for a player (all triggered rounds)
+app.get('/api/marking/assignments/:playerName', async (req, res) => {
+  const { playerName } = req.params;
+
+  try {
+    console.log('Loading assignments for player:', playerName, 'currentQuizId:', currentQuizId);
+
+    if (!currentQuizId) {
+      console.log('No currentQuizId set, returning empty assignments');
+      return res.json({ assignments: [] });
+    }
+
+    // Optimized: Single query with JOINs to get all data at once
+    const result = await pool.query(
+      `SELECT
+        ma.id as assignment_id,
+        ma.markee_name,
+        ma.round_id,
+        r.name as round_name,
+        r.round_type,
+        r.round_order,
+        q.id as question_id,
+        q.question_text,
+        q.image_url,
+        q.question_order,
+        q.answer as correct_answer,
+        pa.answer_text,
+        pm.score
+       FROM marking_assignments ma
+       JOIN rounds r ON ma.round_id = r.id
+       LEFT JOIN questions q ON q.round_id = ma.round_id
+       LEFT JOIN player_answers pa ON pa.question_id = q.id AND pa.player_name = ma.markee_name
+       LEFT JOIN peer_marks pm ON pm.assignment_id = ma.id AND pm.question_id = q.id
+       WHERE ma.marker_name = $1 AND ma.game_session_id = $2
+       ORDER BY r.round_order, q.question_order`,
+      [playerName, currentQuizId]
+    );
+
+    console.log('Found', result.rows.length, 'total rows for player');
+
+    // Group results by assignment
+    const assignmentsMap = {};
+
+    result.rows.forEach(row => {
+      const assignmentId = row.assignment_id;
+
+      // Initialize assignment if not exists
+      if (!assignmentsMap[assignmentId]) {
+        assignmentsMap[assignmentId] = {
+          assignment_id: row.assignment_id,
+          markee_name: row.markee_name,
+          round_id: row.round_id,
+          round_name: row.round_name,
+          round_type: row.round_type,
+          questions: [],
+          answers: {},
+          marks: {}
+        };
+      }
+
+      // Add question if it exists and hasn't been added yet
+      if (row.question_id && !assignmentsMap[assignmentId].questions.find(q => q.id === row.question_id)) {
+        assignmentsMap[assignmentId].questions.push({
+          id: row.question_id,
+          question_text: row.question_text,
+          image_url: row.image_url,
+          question_order: row.question_order,
+          correct_answer: row.correct_answer
+        });
+      }
+
+      // Add answer if exists
+      if (row.question_id && row.answer_text) {
+        assignmentsMap[assignmentId].answers[row.question_id] = row.answer_text;
+      }
+
+      // Add mark if exists
+      if (row.question_id && row.score !== null) {
+        assignmentsMap[assignmentId].marks[row.question_id] = row.score;
+      }
+    });
+
+    // Convert map to array
+    const assignments = Object.values(assignmentsMap);
+
+    console.log('Processed into', assignments.length, 'assignments');
+    res.json({ assignments });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Submit a peer mark for a question
+app.post('/api/marking/submit', async (req, res) => {
+  const { assignment_id, question_id, score } = req.body;
+
+  try {
+    if (!assignment_id || !question_id || score === undefined) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Validate score
+    if (![0, 0.5, 1].includes(parseFloat(score))) {
+      return res.status(400).json({ error: 'Score must be 0, 0.5, or 1' });
+    }
+
+    // Upsert the mark
+    await pool.query(
+      `INSERT INTO peer_marks (assignment_id, question_id, score)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (assignment_id, question_id)
+       DO UPDATE SET score = $3, marked_at = CURRENT_TIMESTAMP`,
+      [assignment_id, question_id, score]
+    );
+
+    res.json({ success: true, message: 'Mark submitted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get marking results for MC to view
+app.get('/api/marking/results', async (req, res) => {
+  try {
+    if (!currentQuizId) {
+      return res.json({ results: [] });
+    }
+
+    // Get all marks for the current game
+    const result = await pool.query(
+      `SELECT
+        ma.markee_name,
+        r.name as round_name,
+        r.id as round_id,
+        q.question_text,
+        q.question_order,
+        pa.answer_text,
+        pm.score,
+        ma.marker_name
+       FROM marking_assignments ma
+       JOIN rounds r ON ma.round_id = r.id
+       JOIN questions q ON q.round_id = r.id
+       LEFT JOIN player_answers pa ON pa.player_name = ma.markee_name AND pa.question_id = q.id
+       LEFT JOIN peer_marks pm ON pm.assignment_id = ma.id AND pm.question_id = q.id
+       WHERE ma.game_session_id = $1
+       ORDER BY ma.markee_name, r.round_order, q.question_order`,
+      [currentQuizId]
+    );
+
+    res.json({ results: result.rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============= SERVE ANGULAR APP IN PRODUCTION =============
+
+// Serve static files from the Angular app (in production)
+app.use(express.static(path.join(__dirname, '../dist/qubPiz/browser')));
+
+// All other routes should redirect to the Angular app
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../dist/qubPiz/browser/index.html'));
 });
 
 // ============= START SERVER =============

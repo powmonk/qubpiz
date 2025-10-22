@@ -1,11 +1,11 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
 import { CommonModule, TitleCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Subscription, interval, Subject } from 'rxjs';
 import { switchMap, startWith, debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { GameStatusService } from '../game-status-service';
+import { ApiService } from '../api.service';
 
 interface Question {
   id: number;
@@ -41,10 +41,10 @@ export class QuestionRound implements OnInit, OnDestroy {
   private answerChanged$ = new Subject<{ questionId: number, answer: string }>();
   private answerSubscription: Subscription = new Subscription();
   
-  private baseUrl = 'http://localhost:3000'; 
+  
 
   constructor(
-    private http: HttpClient, 
+    private api: ApiService, 
     private router: Router,
     private gameStatusService: GameStatusService
   ) {}
@@ -63,8 +63,8 @@ export class QuestionRound implements OnInit, OnDestroy {
 
   setupAutoSave() {
     this.answerSubscription = this.answerChanged$.pipe(
-      debounceTime(1000),
-      distinctUntilChanged((prev, curr) => 
+      debounceTime(300), // Reduced from 1000ms to 300ms for faster saving
+      distinctUntilChanged((prev, curr) =>
         prev.questionId === curr.questionId && prev.answer === curr.answer
       )
     ).subscribe(({ questionId, answer }) => {
@@ -75,7 +75,7 @@ export class QuestionRound implements OnInit, OnDestroy {
   startPolling() {
   this.pollSubscription = interval(3000).pipe(
     startWith(0), 
-    switchMap(() => this.http.get<RoundDisplayData>(`${this.baseUrl}/api/game/display-data`))
+    switchMap(() => this.api.get<RoundDisplayData>(`/api/game/display-data`))
   ).subscribe(data => {
     
     if (!data.round || data.round.round_type === 'picture') {
@@ -84,18 +84,26 @@ export class QuestionRound implements OnInit, OnDestroy {
     }
     
     const roundChanged = this.currentRound?.id !== data.round.id;
-    
+
     // Only update if round actually changed
     if (roundChanged) {
+      console.log('Round changed from', this.currentRound?.id, 'to', data.round.id);
+      // Save all current answers immediately before switching rounds
+      this.saveAllPendingAnswers();
+      console.log('Clearing playerAnswers, current state:', this.playerAnswers);
       this.currentRound = data.round;
       this.questions = data.questions;
+      this.playerAnswers = {}; // Clear answers when round changes
+      console.log('playerAnswers cleared:', this.playerAnswers);
       if (this.currentRound) {
         this.loadPlayerAnswers();
       }
     } else if (!this.currentRound) {
       // First load
+      console.log('First load of round', data.round.id);
       this.currentRound = data.round;
       this.questions = data.questions;
+      this.playerAnswers = {}; // Clear answers on first load
       this.loadPlayerAnswers();
     }
     
@@ -120,17 +128,19 @@ export class QuestionRound implements OnInit, OnDestroy {
   
  loadPlayerAnswers() {
   if (!this.currentRound || !this.playerName) return;
-  
-  this.http.get<{ answers: { [key: string]: string } }>(
-    `${this.baseUrl}/api/answers/${this.playerName}/${this.currentRound.id}`
+
+  console.log('Loading answers for round:', this.currentRound.id, 'player:', this.playerName);
+
+  this.api.get<{ answers: { [key: string]: string } }>(
+    `/api/answers/${this.playerName}/${this.currentRound.id}`
   ).subscribe(data => {
-    // Only update answers that aren't currently being edited
+    console.log('Received answers from server:', data.answers);
+    // Load all saved answers (playerAnswers was cleared when round changed)
     Object.keys(data.answers).forEach(key => {
       const questionId = parseInt(key);
-      if (!this.playerAnswers[questionId]) {
-        this.playerAnswers[questionId] = data.answers[key];
-      }
+      this.playerAnswers[questionId] = data.answers[key];
     });
+    console.log('playerAnswers after loading:', this.playerAnswers);
   });
 }  
 
@@ -147,7 +157,7 @@ export class QuestionRound implements OnInit, OnDestroy {
     if (!answerText.trim()) return;
     if (!this.currentRound) return;
 
-    this.http.post(`${this.baseUrl}/api/answers/submit`, {
+    this.api.post(`/api/answers/submit`, {
       player_name: this.playerName,
       question_id: questionId,
       round_id: this.currentRound.id,
@@ -161,10 +171,24 @@ export class QuestionRound implements OnInit, OnDestroy {
       }
     });
   }
+
+  saveAllPendingAnswers() {
+    if (!this.currentRound) return;
+
+    console.log('Saving all pending answers before round change');
+    // Save all current answers immediately
+    Object.keys(this.playerAnswers).forEach(key => {
+      const questionId = parseInt(key);
+      const answer = this.playerAnswers[questionId];
+      if (answer && answer.trim()) {
+        this.saveAnswer(questionId, answer);
+      }
+    });
+  }
   
   getImageUrl(path: string | null): string {
     if (path) {
-      return `${this.baseUrl}${path}`;
+      return `${this.api.apiBaseUrl}${path}`;
     }
     return '';
   }

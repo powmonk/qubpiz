@@ -1,0 +1,74 @@
+<div class="marking-container">
+  <h1>Peer Marking</h1>
+
+  <div *ngIf="loading" class="loading">
+    <p>Loading marking assignments...</p>
+  </div>
+
+  <div *ngIf="errorMessage" class="error">
+    <p>{{ errorMessage }}</p>
+  </div>
+
+  <div *ngIf="!loading && !errorMessage && assignments.length === 0" class="no-assignments">
+    <h2>No marking assignments yet</h2>
+    <p>The MC needs to click "Start Peer Marking" first.</p>
+    <p>Once marking is started, you'll see all rounds to mark here.</p>
+  </div>
+
+  <div *ngIf="!loading && assignments.length > 0" class="assignments">
+    <div *ngFor="let assignment of assignments" class="assignment-card">
+      <div class="assignment-header">
+        <h2>{{ assignment.round_name }}</h2>
+        <div class="score-summary">
+          <span class="progress">
+            {{ getTotalScore(assignment) }} / {{ getTotalQuestions(assignment) }}
+            <span *ngIf="isComplete(assignment)" class="complete-badge">✓ Complete</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="questions-list">
+        <div *ngFor="let question of assignment.questions" class="question-item">
+          <div class="question-header">
+            <span class="question-number">Q{{ question.question_order }}</span>
+            <p class="question-text">{{ question.question_text }}</p>
+          </div>
+
+          <div *ngIf="question.image_url" class="question-image">
+            <img [src]="'http://localhost:3000' + question.image_url" [alt]="question.question_text">
+          </div>
+
+          <div class="correct-answer">
+            <strong>Correct Answer:</strong> {{ question.correct_answer }}
+          </div>
+
+          <div class="player-answer">
+            <strong>Player's Answer:</strong>
+            <p>{{ getAnswer(assignment, question.id) }}</p>
+          </div>
+
+          <div class="scoring-buttons">
+            <button
+              [class.selected]="getScore(assignment, question.id) === 0"
+              (click)="setScore(assignment.assignment_id, question.id, 0)"
+              class="score-btn wrong">
+              ✗ Wrong (0)
+            </button>
+            <button
+              [class.selected]="getScore(assignment, question.id) === 0.5"
+              (click)="setScore(assignment.assignment_id, question.id, 0.5)"
+              class="score-btn half">
+              ~ Half (0.5)
+            </button>
+            <button
+              [class.selected]="getScore(assignment, question.id) === 1"
+              (click)="setScore(assignment.assignment_id, question.id, 1)"
+              class="score-btn correct">
+              ✓ Correct (1)
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

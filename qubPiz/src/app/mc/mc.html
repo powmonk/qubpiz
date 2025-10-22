@@ -50,9 +50,9 @@
     <p class="quiz-date-display">{{ currentQuiz.quiz_date | date:'fullDate' }}</p>
     
     <div class="game-status-panel">
-      <button (click)="toggleGameStatus()" 
+      <button (click)="toggleGameStatus()"
               [ngClass]="{
-                'start-game-btn': currentQuiz.status === 'waiting' || currentQuiz.status === 'closed', 
+                'start-game-btn': currentQuiz.status === 'waiting',
                 'end-game-btn': currentQuiz.status === 'active'
               }">
         <span *ngIf="currentQuiz.status === 'waiting'">Start Game & Open Lobby</span>
@@ -75,17 +75,67 @@
       </ul>
       <button (click)="resetGame()" class="reset-btn">Clear All Players</button>
     </div>
-    <app-round-manager 
+
+    <app-round-manager
       [currentQuizId]="currentQuiz.id"
       [currentDisplayedRoundId]="currentQuiz.current_round_id"
       (roundSelected)="onRoundSelected($event)"
       (displayStateChanged)="handleDisplayStateChanged()">
     </app-round-manager>
-    
-    <app-question-manager 
+
+    <app-question-manager
       *ngIf="selectedRound"
       [currentRound]="selectedRound">
     </app-question-manager>
+
+    <!-- End Game and Marking Controls Section (Bottom of page) -->
+    <div *ngIf="currentQuiz.status === 'closed'" class="bottom-controls">
+      <h3>Game Controls</h3>
+      <div class="bottom-buttons">
+        <button (click)="toggleGameAndMarking()"
+                [ngClass]="markingMode ? 'resume-game-btn' : 'end-game-final-btn'">
+          <span *ngIf="!markingMode">End Game & Start Marking</span>
+          <span *ngIf="markingMode">Resume Game</span>
+        </button>
+        <button (click)="viewMarkingResults()" class="view-results-btn">
+          {{ showResults ? 'Refresh Results' : 'View Marking Results' }}
+        </button>
+      </div>
+      <p class="marking-help" *ngIf="!markingMode">
+        When you're done with all rounds, click "End Game & Start Marking" to send all rounds to players for peer marking.
+      </p>
+      <p class="marking-help" *ngIf="markingMode">
+        Players are currently marking answers. Click "View Marking Results" to see scores.
+      </p>
+
+      <!-- Results Display -->
+      <div *ngIf="showResults" class="results-display">
+        <h4>Peer Marking Results</h4>
+        <div *ngIf="markingResults.length === 0" class="no-results">
+          <p>No marking results yet. Players haven't submitted marks.</p>
+        </div>
+        <table *ngIf="markingResults.length > 0" class="results-table">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Player</th>
+              <th>Marked By</th>
+              <th>Score</th>
+              <th>Percentage</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let result of markingResults; let i = index">
+              <td class="rank">{{ i + 1 }}</td>
+              <td class="player-name">{{ result.player }}</td>
+              <td class="marked-by">{{ result.markedBy }}</td>
+              <td class="score">{{ result.score }} / {{ result.possible }}</td>
+              <td class="percentage">{{ (result.score / result.possible * 100).toFixed(1) }}%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 
   <div *ngIf="!currentQuiz && !showNewQuizForm && !showQuizList" class="no-selection">

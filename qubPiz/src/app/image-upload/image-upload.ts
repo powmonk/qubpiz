@@ -1,6 +1,6 @@
 import { Component, Output, EventEmitter, Input } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
+import { ApiService } from '../api.service';
 
 @Component({
   selector: 'app-image-upload',
@@ -12,13 +12,13 @@ import { CommonModule } from '@angular/common';
 export class ImageUpload {
   @Input() currentImageUrl?: string;
   @Output() imageUploaded = new EventEmitter<string>();
-  
+
   selectedFile: File | null = null;
   previewUrl: string | null = null;
   uploading = false;
   uploadError: string | null = null;
 
-  constructor(private http: HttpClient) {}
+  constructor(private api: ApiService) {}
 
   onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
@@ -59,7 +59,7 @@ export class ImageUpload {
     const formData = new FormData();
     formData.append('image', this.selectedFile);
 
-    this.http.post<{ imageUrl: string }>('http://localhost:3000/api/questions/upload-image', formData)
+    this.api.post<{ imageUrl: string }>('/api/questions/upload-image', formData)
       .subscribe({
         next: (response) => {
           this.uploading = false;

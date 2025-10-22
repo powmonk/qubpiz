@@ -1,9 +1,11 @@
-import { Component, OnInit } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RoundManager } from './round-manager/round-manager';
 import { QuestionManager } from './question-manager/question-manager';
+import { GameStatusService } from '../game-status-service';
+import { ApiService } from '../api.service';
+import { Subscription } from 'rxjs';
 
 interface Quiz {
   id: number;
@@ -31,20 +33,28 @@ interface Round {
   styleUrl: './mc.css'
 })
 
-export class Mc implements OnInit {
+export class Mc implements OnInit, OnDestroy {
   currentQuiz: Quiz | null = null;
   allQuizzes: Quiz[] = [];
   selectedRound: Round | null = null;
-  
+
   showNewQuizForm: boolean = false;
   showQuizList: boolean = false;
   newQuizName: string = '';
   newQuizDate: string = new Date().toISOString().split('T')[0];
-  
+
   // NEW: Property to hold player list
   players: string[] = [];
-  
-  constructor(private http: HttpClient) {}
+  markingMode: boolean = false;
+  markingResults: Array<{player: string, score: number, possible: number, markedBy: string}> = [];
+  showResults: boolean = false;
+
+  private gameStatusSubscription?: Subscription;
+
+  constructor(
+    private api: ApiService,
+    private gameStatusService: GameStatusService
+  ) {}
 
   handleDisplayStateChanged() {
     this.loadCurrentQuiz();
@@ -55,18 +65,30 @@ export class Mc implements OnInit {
     this.loadCurrentQuiz();
     this.loadAllQuizzes();
     this.loadPlayers();
-    setInterval(() => this.loadPlayers(), 3000);
+
+    // Subscribe to game status updates from the service instead of polling directly
+    this.gameStatusSubscription = this.gameStatusService.gameStatus$.subscribe(data => {
+      if (!data) return;
+
+      // Update marking mode from game status
+      this.markingMode = data.marking_mode;
+
+      // Load players when game is active
+      if (data.status === 'active' || data.status === 'closed') {
+        this.loadPlayers();
+      }
+    });
   }
 
   loadCurrentQuiz() {
-    this.http.get<{quiz: Quiz | null}>('http://localhost:3000/api/quiz/current')
+    this.api.get<{quiz: Quiz | null}>('/api/quiz/current')
       .subscribe(data => {
         this.currentQuiz = data.quiz;
       });
   }
 
   loadAllQuizzes() {
-    this.http.get<{quizzes: Quiz[]}>('http://localhost:3000/api/quizzes')
+    this.api.get<{quizzes: Quiz[]}>('/api/quizzes')
       .subscribe(data => {
         this.allQuizzes = data.quizzes;
       });
@@ -74,11 +96,10 @@ export class Mc implements OnInit {
 
   createQuiz() {
     if (!this.newQuizName.trim()) {
-      alert('Please enter a quiz name');
       return;
     }
 
-    this.http.post('http://localhost:3000/api/quiz/create', {
+    this.api.post('/api/quiz/create', {
       quiz_name: this.newQuizName,
       quiz_date: this.newQuizDate
     }).subscribe(() => {
@@ -91,7 +112,7 @@ export class Mc implements OnInit {
   }
 
   selectQuiz(quizId: number) {
-    this.http.post(`http://localhost:3000/api/quiz/select/${quizId}`, {})
+    this.api.post(`/api/quiz/select/${quizId}`, {})
       .subscribe(() => {
         this.loadCurrentQuiz();
         this.showQuizList = false;
@@ -101,18 +122,16 @@ export class Mc implements OnInit {
 
   deleteQuiz(quizId: number, event: Event) {
     event.stopPropagation();
-    if (confirm('Delete this quiz and all its rounds/questions?')) {
-      this.http.delete(`http://localhost:3000/api/quiz/${quizId}`)
-        .subscribe(() => {
-          this.loadCurrentQuiz();
-          this.loadAllQuizzes();
-          this.selectedRound = null;
-        });
-    }
+    this.api.delete(`/api/quiz/${quizId}`)
+      .subscribe(() => {
+        this.loadCurrentQuiz();
+        this.loadAllQuizzes();
+        this.selectedRound = null;
+      });
   }
   // NEW METHOD: Load players (from server)
   loadPlayers() {
-    this.http.get<{players: string[]}>('http://localhost:3000/api/players')
+    this.api.get<{players: string[]}>('/api/players')
       .subscribe({
         next: (data) => {
           this.players = data.players;
@@ -126,59 +145,139 @@ export class Mc implements OnInit {
 
   // NEW METHOD: Remove individual player
   removePlayer(playerName: string) {
-    if (confirm(`Are you sure you want to remove player: ${playerName}?`)) {
-      this.http.delete<{players: string[]}>(`http://localhost:3000/api/player/remove/${playerName}`)
-        .subscribe({
-          next: (data) => {
-            this.players = data.players;
-            console.log(`${playerName} removed.`);
-          },
-          error: (err) => {
-            console.error('Error removing player', err);
-            alert('Error removing player: ' + (err.error?.error || 'Unknown error'));
-          }
-        });
-    }
+    this.api.delete<{players: string[]}>(`/api/player/remove/${playerName}`)
+      .subscribe({
+        next: (data) => {
+          this.players = data.players;
+          console.log(`${playerName} removed.`);
+        },
+        error: (err) => {
+          console.error('Error removing player', err);
+        }
+      });
   }
 
   // NEW METHOD: Clear all players
   resetGame() {
-    if (confirm('Are you sure you want to clear all players from the lobby?')) {
-      this.http.post('http://localhost:3000/api/reset', {})
-        .subscribe({
-          next: (data: any) => {
-            this.players = data.players;
-            console.log('All players cleared.');
-          },
-          error: (err) => {
-            console.error('Error resetting players', err);
-            alert('Error resetting players: ' + (err.error?.error || 'Unknown error'));
-          }
-        });
-    }
+    this.api.post('/api/reset', {})
+      .subscribe({
+        next: (data: any) => {
+          this.players = data.players;
+          console.log('All players cleared.');
+        },
+        error: (err) => {
+          console.error('Error resetting players', err);
+        }
+      });
   }
 
   // Update toggleGameStatus to also reload players and use the updated logic
   toggleGameStatus() {
     if (!this.currentQuiz) {
-      alert('No quiz selected to toggle status.');
       return;
     }
 
-    this.http.post<{quiz: Quiz}>('http://localhost:3000/api/game/toggle-status', {})
+    this.api.post<{quiz: Quiz}>('/api/game/toggle-status', {})
       .subscribe({
         next: (data) => {
-          this.currentQuiz = data.quiz; 
-          this.loadPlayers(); 
+          this.currentQuiz = data.quiz;
+          this.loadPlayers();
         },
         error: (err) => {
           console.error('Error toggling game status', err);
-          alert('Error toggling game status: ' + (err.error?.error || 'Unknown error'));
         }
       });
   }
   
   onRoundSelected(round: Round) {
     this.selectedRound = round;
+  }
+
+  // Toggle between game mode and marking mode
+  toggleGameAndMarking() {
+    if (!this.markingMode) {
+      // Ending game and starting marking
+      this.api.post('/api/marking/trigger-all-rounds', {})
+        .subscribe({
+          next: (data: any) => {
+            console.log('Rounds triggered:', data);
+            // Then enable marking mode
+            this.api.post('/api/marking/toggle-mode', {})
+              .subscribe({
+                next: (modeData: any) => {
+                  this.markingMode = modeData.marking_mode;
+                  console.log('Marking mode enabled');
+                },
+                error: (err) => {
+                  console.error('Error enabling marking mode', err);
+                }
+              });
+          },
+          error: (err) => {
+            console.error('Error triggering rounds', err);
+          }
+        });
+    } else {
+      // Resume game (disable marking mode)
+      this.api.post('/api/marking/toggle-mode', {})
+        .subscribe({
+          next: (data: any) => {
+            this.markingMode = data.marking_mode;
+            console.log('Game resumed');
+          },
+          error: (err) => {
+            console.error('Error toggling marking mode', err);
+          }
+        });
+    }
+  }
+
+  // Marking-related methods
+  viewMarkingResults() {
+    this.api.get<{results: any[]}>('/api/marking/results')
+      .subscribe({
+        next: (data) => {
+          if (data.results.length === 0) {
+            this.markingResults = [];
+            this.showResults = true;
+            return;
+          }
+
+          // Group results by player and calculate totals, track marker
+          const playerScores: {[player: string]: {total: number, possible: number, markedBy: string}} = {};
+
+          data.results.forEach(result => {
+            if (!playerScores[result.markee_name]) {
+              playerScores[result.markee_name] = {total: 0, possible: 0, markedBy: result.marker_name};
+            }
+            playerScores[result.markee_name].possible += 1;
+            if (result.score !== null) {
+              playerScores[result.markee_name].total += parseFloat(result.score);
+            }
+          });
+
+          // Convert to array and sort by score
+          this.markingResults = Object.entries(playerScores)
+            .map(([player, scores]) => ({
+              player: player,
+              score: scores.total,
+              possible: scores.possible,
+              markedBy: scores.markedBy
+            }))
+            .sort((a, b) => b.score - a.score);
+
+          this.showResults = true;
+          console.log('Detailed results:', data.results);
+        },
+        error: (err) => {
+          console.error('Error loading marking results', err);
+        }
+      });
+  }
+
+  ngOnDestroy() {
+    if (this.gameStatusSubscription) {
+      this.gameStatusSubscription.unsubscribe();
+    }
   }
 }

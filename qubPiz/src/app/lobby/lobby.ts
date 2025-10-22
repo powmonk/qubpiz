@@ -1,18 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
-import { GameStatusService } from '../game-status-service'; // Add this import
-
-// Match updated server response
-interface GameStatus {
-  active: boolean;
-  status: string;
-  current_round_id: number | null;
-  current_round_type: string | null;
-  current_round_name: string | null;
-}
+import { GameStatusService } from '../game-status-service';
+import { ApiService } from '../api.service';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-lobby',
@@ -21,73 +13,80 @@ interface GameStatus {
   templateUrl: './lobby.html',
   styleUrl: './lobby.css'
 })
-export class Lobby implements OnInit {
+export class Lobby implements OnInit, OnDestroy {
   playerName: string = '';
   players: string[] = [];
   gameActive: boolean = false;
-  quizRunning: boolean = false; 
+  quizRunning: boolean = false;
+  isPlayerLoggedIn: boolean = false;
+  private gameStatusSubscription?: Subscription;
 
   constructor(
     private router: Router,
-    private http: HttpClient,
-    private gameStatusService: GameStatusService // Add this injection
+    private api: ApiService,
+    private gameStatusService: GameStatusService
   ) {}
 
   ngOnInit() {
-    this.checkGameStatus();
-    setInterval(() => this.checkGameStatus(), 3000);
-  }
-
-  checkGameStatus() {
-    this.http.get<GameStatus>('http://localhost:3000/api/game/status')
-      .subscribe(data => {
-        
-        this.gameActive = data.status === 'active'; 
-        this.quizRunning = data.status === 'active' || data.status === 'closed';
-
-        if (this.gameActive) { 
-          this.loadPlayers(); 
-        }
-        
-        if (data.current_round_id && data.current_round_type) {
-          let routePath: string;
-          
-          if (data.current_round_type === 'picture') {
-            routePath = '/round/picture';
+    // Check if player is already logged in (from localStorage)
+    const existingPlayer = this.gameStatusService.getCurrentPlayer();
+    if (existingPlayer) {
+      // Verify the player still exists on the server
+      this.api.get<{players: string[]}>('/api/players')
+        .subscribe(data => {
+          if (data.players.includes(existingPlayer)) {
+            // Player exists on server, they're still logged in
+            this.isPlayerLoggedIn = true;
+            this.playerName = existingPlayer;
           } else {
-            routePath = '/round/question';
+            // Player was cleared from server, clear local storage
+            this.gameStatusService.clearCurrentPlayer();
+            this.isPlayerLoggedIn = false;
+            this.playerName = '';
           }
+        });
+    }
 
-          const currentPath = this.router.url.split('?')[0];
+    // Subscribe to game status updates from the service instead of polling directly
+    this.gameStatusSubscription = this.gameStatusService.gameStatus$.subscribe(data => {
+      if (!data) return;
 
-          if (currentPath === '/' || currentPath === '/lobby') {
-            const newUrl = this.router.createUrlTree([routePath], { 
-                queryParamsHandling: 'merge',
-            }).toString();
+      this.gameActive = data.status === 'active';
+      this.quizRunning = data.status === 'active' || data.status === 'closed';
 
-            this.router.navigateByUrl(newUrl, { replaceUrl: true });
-          }
-        } 
-        
-        else if (!data.current_round_id && this.router.url.startsWith('/round/')) {
-             this.router.navigate(['/'], { replaceUrl: true });
-        }
-      });
+      if (this.gameActive) {
+        this.loadPlayers();
+      }
+    });
   }
 
   loadPlayers() {
-    this.http.get<{players: string[]}>('http://localhost:3000/api/players')
+    this.api.get<{players: string[]}>('/api/players')
       .subscribe(data => {
         this.players = data.players;
       });
   }
 
   onSubmit() {
-    this.http.post('http://localhost:3000/api/join', { name: this.playerName })
+    this.api.post('/api/join', { name: this.playerName })
       .subscribe(() => {
-        // Store player name in the service
+        // Store player name in the service (and localStorage)
         this.gameStatusService.setCurrentPlayer(this.playerName);
-        this.router.navigate(['/']); 
+        this.isPlayerLoggedIn = true;
+        this.router.navigate(['/']);
       });
+  }
+
+  // Optional: Add logout functionality
+  logout() {
+    this.gameStatusService.clearCurrentPlayer();
+    this.isPlayerLoggedIn = false;
+    this.playerName = '';
+  }
+
+  ngOnDestroy() {
+    if (this.gameStatusSubscription) {
+      this.gameStatusSubscription.unsubscribe();
+    }
   }
 }

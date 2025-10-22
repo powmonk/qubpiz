@@ -1,8 +1,8 @@
 import { Component, Input, OnInit, OnChanges, SimpleChanges } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ImageUpload } from '../../image-upload/image-upload';
+import { ApiService } from '../../api.service';
 
 interface Round {
   id: number;
@@ -48,7 +48,7 @@ export class QuestionManager implements OnInit, OnChanges {
     answer: ''
   };
 
-  constructor(private http: HttpClient) {}
+  constructor(private api: ApiService) {}
 
   ngOnInit() {
     console.log('🔍 QuestionManager INIT:', {
@@ -90,8 +90,8 @@ export class QuestionManager implements OnInit, OnChanges {
   loadQuestions() {
     if (!this.currentRound) return;
     
-    this.http.get<{ questions: Question[] }>(
-      `http://localhost:3000/api/rounds/${this.currentRound.id}/questions`
+    this.api.get<{ questions: Question[] }>(
+      `/api/rounds/${this.currentRound.id}/questions`
     ).subscribe(data => {
       this.questions = data.questions;
       // For image rounds, use the first question's text as the round question
@@ -118,7 +118,7 @@ export class QuestionManager implements OnInit, OnChanges {
       return;
     }
 
-    this.http.post('http://localhost:3000/api/questions', {
+    this.api.post('/api/questions', {
       round_id: this.currentRound!.id,
       question_text: this.newTextQuestion.text,
       answer: this.newTextQuestion.answer,
@@ -159,7 +159,7 @@ export class QuestionManager implements OnInit, OnChanges {
     }
 
     // All images in the round share the same question_text
-    this.http.post('http://localhost:3000/api/questions', {
+    this.api.post('/api/questions', {
       round_id: this.currentRound!.id,
       question_text: this.imageRoundQuestion,
       answer: this.newImageItem.answer,
@@ -178,7 +178,7 @@ export class QuestionManager implements OnInit, OnChanges {
 
   deleteQuestion(questionId: number) {
     if (confirm('Delete this question?')) {
-      this.http.delete(`http://localhost:3000/api/questions/${questionId}`)
+      this.api.delete(`/api/questions/${questionId}`)
         .subscribe({
           next: () => {
             this.loadQuestions();

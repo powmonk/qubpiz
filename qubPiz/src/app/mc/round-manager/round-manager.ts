@@ -1,9 +1,9 @@
 // powmonk/qubpiz/qubpiz-main/qubPiz/src/app/mc/round-manager/round-manager.ts
 
 import { Component, OnInit, Input, Output, EventEmitter, OnChanges, SimpleChanges } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ApiService } from '../../api.service';
 
 interface Round {
   id: number;
@@ -35,7 +35,7 @@ export class RoundManager implements OnInit, OnChanges {
   
   showNewRoundForm: boolean = false; // Property restored
 
-  constructor(private http: HttpClient) {}
+  constructor(private api: ApiService) {}
 
   ngOnInit() {
     if (this.currentQuizId) {
@@ -55,7 +55,7 @@ export class RoundManager implements OnInit, OnChanges {
   loadRounds() {
     if (!this.currentQuizId) return;
 
-    this.http.get<{rounds: Round[]}>(`http://localhost:3000/api/rounds?quizId=${this.currentQuizId}`)
+    this.api.get<{rounds: Round[]}>(`/api/rounds?quizId=${this.currentQuizId}`)
       .subscribe(data => {
         this.rounds = data.rounds;
       });
@@ -67,7 +67,7 @@ export class RoundManager implements OnInit, OnChanges {
       return;
     }
 
-    this.http.post('http://localhost:3000/api/rounds', {
+    this.api.post('/api/rounds', {
       name: this.newRoundName,
       round_type: this.newRoundType
     }).subscribe(() => {
@@ -80,7 +80,7 @@ export class RoundManager implements OnInit, OnChanges {
   deleteRound(roundId: number, event: Event) {
     event.stopPropagation();
     if (confirm('Delete this round and all its questions?')) {
-      this.http.delete(`http://localhost:3000/api/rounds/${roundId}`)
+      this.api.delete(`/api/rounds/${roundId}`)
         .subscribe(() => {
           this.loadRounds();
           this.selectedRound = null;
@@ -103,7 +103,7 @@ setDisplayRound(round: Round | null) {
     this.selectRound(round);
   }
 
-  this.http.post(`http://localhost:3000/api/game/set-round/${roundId}`, {})
+  this.api.post(`/api/game/set-round/${roundId}`, {})
     .subscribe({
       next: () => {
         // Fire event to tell the parent Mc component to refresh currentQuiz

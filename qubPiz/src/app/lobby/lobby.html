@@ -1,7 +1,9 @@
 <div *ngIf="gameActive" class="lobby-container">
   <div class="left-section">
     <h1>Quiz Lobby</h1>
-    <form (ngSubmit)="onSubmit()">
+    
+    <!-- Show join form if not logged in -->
+    <form *ngIf="!isPlayerLoggedIn" (ngSubmit)="onSubmit()">
       <input 
         type="text" 
         [(ngModel)]="playerName"
@@ -10,6 +12,13 @@
       />
       <button type="submit">Join Game</button>
     </form>
+
+    <!-- Show player info if logged in -->
+    <div *ngIf="isPlayerLoggedIn" class="player-status">
+      <p class="welcome-message">Welcome, <strong>{{ playerName }}</strong>!</p>
+      <p class="status-message">You're in the game. Waiting for MC to start a round...</p>
+      <button (click)="logout()" class="logout-btn">Leave Game</button>
+    </div>
   </div>
   
   <div class="right-section">
@@ -23,8 +32,11 @@
 <div *ngIf="quizRunning && !gameActive" class="waiting-screen">
   <h1>Game In Progress</h1>
   <p>The quiz is currently running. Waiting for the MC to display the next question or open the lobby for new players.</p>
+  <div *ngIf="isPlayerLoggedIn" class="player-logged-in-status">
+    <p>Logged in as: <strong>{{ playerName }}</strong></p>
+    <p>You'll be redirected to rounds automatically when they start.</p>
+  </div>
 </div>
-
 
 <div *ngIf="!quizRunning" class="waiting-screen">
   <h1>No Active Game</h1>
