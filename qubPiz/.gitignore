@@ -41,3 +41,13 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# Environment variables
+server/.env
+.env
+
+# Uploads
+server/uploads/
+
+# Deployment
+qubpiz-deploy.tar.gz

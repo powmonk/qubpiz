@@ -1,0 +1,73 @@
+<div *ngIf="currentRound" class="display-container" [class.picture-display]="isPictureRound" [class.question-display]="!isPictureRound">
+
+  <header>
+    <h1>{{ currentRound.name }}</h1>
+    <p class="round-type-info">({{ currentRound.round_type | titlecase }} Round)</p>
+
+    <!-- Main question text for picture rounds -->
+    <p class="main-question" *ngIf="isPictureRound && mainQuestionText">{{ mainQuestionText }}</p>
+
+    <p class="player-name-display">Playing as: <strong>{{ playerName }}</strong></p>
+  </header>
+
+  <!-- Picture Round Grid -->
+  <div *ngIf="isPictureRound" class="questions-grid">
+    <div *ngFor="let item of paddedQuestions; trackBy: trackByItem"
+         class="question-card"
+         [class.blank-tile]="item.isBlank">
+
+      <!-- Only show content for real questions, not blank tiles -->
+      <ng-container *ngIf="!item.isBlank">
+        <div class="question-number">
+          {{ item.question!.question_order }}
+        </div>
+
+        <div *ngIf="item.question!.image_url" class="question-image-wrapper">
+          <img [src]="getImageUrl(item.question!.image_url)" alt="Question {{ item.question!.question_order }}">
+        </div>
+
+        <div class="answer-section">
+          <input
+            type="text"
+            [(ngModel)]="playerAnswers[item.question!.id]"
+            (ngModelChange)="onAnswerChange(item.question!.id)"
+            placeholder="Your answer..."
+            class="answer-input"
+          />
+        </div>
+      </ng-container>
+
+    </div>
+  </div>
+
+  <!-- Question Round List -->
+  <div *ngIf="!isPictureRound" class="questions-grid">
+    <div *ngFor="let question of questions; trackBy: trackByQuestionId" class="question-card">
+
+      <div class="question-content">
+        <span class="question-number">{{ question.question_order }}.</span>
+        <span class="question-text">{{ question.question_text }}</span>
+      </div>
+
+      <div *ngIf="question.image_url" class="question-image-thumb">
+        <img [src]="getImageUrl(question.image_url)" alt="Question Image">
+      </div>
+
+      <div class="answer-section">
+        <input
+          type="text"
+          [(ngModel)]="playerAnswers[question.id]"
+          (ngModelChange)="onAnswerChange(question.id)"
+          placeholder="Your answer..."
+          class="answer-input"
+        />
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div *ngIf="!currentRound" class="display-container waiting-screen">
+    <h1>Quiz Display</h1>
+    <p>Waiting for the MC to display the current round.</p>
+</div>

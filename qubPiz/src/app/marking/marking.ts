@@ -3,25 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { GameStatusService } from '../game-status-service';
 import { ApiService } from '../api.service';
-
-interface Question {
-  id: number;
-  question_text: string;
-  image_url: string | null;
-  question_order: number;
-  correct_answer: string;
-}
-
-interface Assignment {
-  assignment_id: number;
-  markee_name: string;
-  round_id: number;
-  round_name: string;
-  round_type: string;
-  questions: Question[];
-  answers: { [questionId: number]: string };
-  marks: { [questionId: number]: number };
-}
+import { Assignment } from '../shared/types';
 
 @Component({
   selector: 'app-marking',
@@ -54,21 +36,15 @@ export class Marking implements OnInit {
   }
 
   loadAssignments() {
-    console.log('Loading marking assignments for player:', this.playerName);
     this.api.get<{ assignments: Assignment[] }>(
       `/api/marking/assignments/${this.playerName}`
     ).subscribe({
       next: (data) => {
-        console.log('Received assignments:', data);
         this.assignments = data.assignments;
         this.loading = false;
-        if (this.assignments.length === 0) {
-          console.log('No assignments found - marking may not have been triggered yet');
-        }
       },
       error: (err) => {
         console.error('Error loading assignments:', err);
-        console.error('Error details:', err.error);
         this.errorMessage = `Failed to load marking assignments: ${err.error?.error || err.message || 'Unknown error'}`;
         this.loading = false;
       }

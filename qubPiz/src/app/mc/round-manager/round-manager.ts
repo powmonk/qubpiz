@@ -4,15 +4,7 @@ import { Component, OnInit, Input, Output, EventEmitter, OnChanges, SimpleChange
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../api.service';
-
-interface Round {
-  id: number;
-  game_session_id: number;
-  name: string;
-  round_type: string;
-  round_order: number;
-  created_at: string;
-}
+import { Round } from '../../shared/types';
 
 @Component({
   selector: 'app-round-manager',

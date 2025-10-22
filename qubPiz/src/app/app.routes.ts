@@ -2,14 +2,13 @@
 import { Routes } from '@angular/router';
 import { Lobby } from './lobby/lobby';
 import { Mc } from './mc/mc';
-import { PictureRound } from './picture-round/picture-round';
-import { QuestionRound } from './question-round/question-round';
+import { RoundComponent } from './round/round';
 import { Marking } from './marking/marking';
 
 export const routes: Routes = [
-  { path: '', component: Lobby },  // Changed from Home to Lobby
+  { path: '', component: Lobby },
   { path: 'mc', component: Mc },
-  { path: 'round/picture', component: PictureRound },
-  { path: 'round/question', component: QuestionRound },
+  { path: 'round/picture', component: RoundComponent, data: { roundType: 'picture' } },
+  { path: 'round/question', component: RoundComponent, data: { roundType: 'question' } },
   { path: 'marking', component: Marking }
 ];

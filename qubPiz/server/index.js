@@ -2,12 +2,17 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
 const { Pool } = require('pg');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
 const app = express();
+
+// Gzip compression for all responses (reduces bandwidth by 70-90%)
+app.use(compression());
+
 app.use(cors());
 app.use(express.json());
 
@@ -47,13 +52,16 @@ const upload = multer({
 // Serve uploaded files statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Database connection
+// Database connection with pooling limits (optimized for 1GB server)
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
   database: process.env.DB_NAME,
   password: process.env.DB_PASSWORD,
   port: process.env.DB_PORT,
+  max: 10, // Maximum number of clients in the pool
+  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
+  connectionTimeoutMillis: 2000, // Return an error after 2 seconds if connection cannot be established
 });
 
 // Track which quiz is currently active
@@ -836,10 +844,7 @@ app.get('/api/marking/assignments/:playerName', async (req, res) => {
   const { playerName } = req.params;
 
   try {
-    console.log('Loading assignments for player:', playerName, 'currentQuizId:', currentQuizId);
-
     if (!currentQuizId) {
-      console.log('No currentQuizId set, returning empty assignments');
       return res.json({ assignments: [] });
     }
 
@@ -868,8 +873,6 @@ app.get('/api/marking/assignments/:playerName', async (req, res) => {
        ORDER BY r.round_order, q.question_order`,
       [playerName, currentQuizId]
     );
-
-    console.log('Found', result.rows.length, 'total rows for player');
 
     // Group results by assignment
     const assignmentsMap = {};
@@ -916,7 +919,6 @@ app.get('/api/marking/assignments/:playerName', async (req, res) => {
     // Convert map to array
     const assignments = Object.values(assignmentsMap);
 
-    console.log('Processed into', assignments.length, 'assignments');
     res.json({ assignments });
   } catch (err) {
     res.status(500).json({ error: err.message });

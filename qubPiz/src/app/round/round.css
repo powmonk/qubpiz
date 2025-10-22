@@ -1,7 +1,7 @@
-/* Picture Round Display Styles */
+/* Unified Round Display Styles (Picture & Question Rounds) */
 .display-container {
     padding: 40px;
-    background-color: #1a1a1a; 
+    background-color: #1a1a1a;
     min-height: 100vh;
     color: white;
 }
@@ -23,7 +23,7 @@
     margin-bottom: 15px;
 }
 
-/* Main question text styling */
+/* Main question text styling (picture rounds only) */
 .main-question {
     font-size: 1.8em;
     color: #FFC107;
@@ -41,42 +41,46 @@
     margin-top: 15px;
 }
 
-/* Grid Layout - Forces minimum 2 columns */
+/* Questions Grid Layout */
 .questions-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 30px;
+    gap: 25px;
     padding: 0 20px;
     max-width: 1400px;
     margin: 0 auto;
 }
 
-/* Ensure at least 2 columns on wider screens */
-@media (min-width: 768px) {
-    .questions-grid {
-        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-    }
+/* Picture Round: Grid layout */
+.picture-display .questions-grid {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 30px;
 }
 
+/* Question Round: Vertical list */
+.question-display .questions-grid {
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+}
+
+/* Ensure proper columns on different screen sizes */
 @media (min-width: 900px) {
-    .questions-grid {
+    .picture-display .questions-grid {
         grid-template-columns: repeat(2, 1fr);
     }
 }
 
 @media (min-width: 1200px) {
-    .questions-grid {
+    .picture-display .questions-grid {
         grid-template-columns: repeat(3, 1fr);
     }
 }
 
 @media (min-width: 1600px) {
-    .questions-grid {
+    .picture-display .questions-grid {
         grid-template-columns: repeat(4, 1fr);
     }
 }
 
-/* Question Card */
+/* Question Card Base */
 .question-card {
     background-color: #2c2c2c;
     border-radius: 12px;
@@ -85,7 +89,6 @@
     display: flex;
     flex-direction: column;
     transition: transform 0.2s, box-shadow 0.2s;
-    position: relative;
 }
 
 .question-card:not(.blank-tile):hover {
@@ -93,7 +96,7 @@
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.7);
 }
 
-/* Blank tile styling - invisible but maintains grid layout */
+/* Blank tile styling (picture rounds only) */
 .question-card.blank-tile {
     background-color: transparent;
     box-shadow: none;
@@ -101,8 +104,8 @@
     visibility: hidden;
 }
 
-/* Question Number Badge */
-.question-number {
+/* Question Number - Picture Round (Badge) */
+.picture-display .question-number {
     position: absolute;
     top: 15px;
     left: 15px;
@@ -120,7 +123,27 @@
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 
-/* Image Wrapper - 3:4 aspect ratio */
+/* Question Round: Content Layout */
+.question-display .question-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.question-display .question-number {
+    font-size: 1.6em;
+    font-weight: bold;
+    color: #FFC107;
+    flex-shrink: 0;
+}
+
+.question-display .question-text {
+    font-size: 1.3em;
+    line-height: 1.5;
+    color: #ffffff;
+}
+
+/* Image Wrapper - Picture Round (3:4 aspect ratio) */
 .question-image-wrapper {
     width: 100%;
     aspect-ratio: 3 / 4;
@@ -128,6 +151,7 @@
     border-radius: 8px;
     background-color: #1a1a1a;
     margin-bottom: 15px;
+    position: relative;
 }
 
 .question-image-wrapper img {
@@ -137,10 +161,34 @@
     object-position: center;
 }
 
+/* Image Thumbnail - Question Round */
+.question-image-thumb {
+    margin-top: 10px;
+    max-width: 100%;
+    max-height: 200px;
+    overflow: hidden;
+    border-radius: 8px;
+    background-color: #1a1a1a;
+}
+
+.question-image-thumb img {
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+}
+
 /* Answer Input Section */
 .answer-section {
     width: 100%;
     margin-top: auto;
+}
+
+.picture-display .answer-section {
+    margin-top: 0;
+}
+
+.question-display .answer-section {
+    margin-top: 15px;
 }
 
 .answer-input {
@@ -187,19 +235,23 @@
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .questions-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr !important;
         padding: 0 10px;
     }
-    
+
     .display-container {
         padding: 20px 10px;
     }
-    
+
     .display-container h1 {
         font-size: 2em;
     }
-    
+
     .main-question {
         font-size: 1.4em;
+    }
+
+    .question-display .question-text {
+        font-size: 1.1em;
     }
 }

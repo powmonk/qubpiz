@@ -6,24 +6,7 @@ import { QuestionManager } from './question-manager/question-manager';
 import { GameStatusService } from '../game-status-service';
 import { ApiService } from '../api.service';
 import { Subscription } from 'rxjs';
-
-interface Quiz {
-  id: number;
-  quiz_name: string;
-  quiz_date: string;
-  status: string;
-  created_at: string;
-  current_round_id: number | null; // Confirmed property exists
-}
-
-interface Round {
-  id: number;
-  game_session_id: number;
-  name: string;
-  round_type: string;
-  round_order: number;
-  created_at: string;
-}
+import { Quiz, Round } from '../shared/types';
 
 @Component({
   selector: 'app-mc',
@@ -149,7 +132,6 @@ export class Mc implements OnInit, OnDestroy {
       .subscribe({
         next: (data) => {
           this.players = data.players;
-          console.log(`${playerName} removed.`);
         },
         error: (err) => {
           console.error('Error removing player', err);
@@ -163,7 +145,6 @@ export class Mc implements OnInit, OnDestroy {
       .subscribe({
         next: (data: any) => {
           this.players = data.players;
-          console.log('All players cleared.');
         },
         error: (err) => {
           console.error('Error resetting players', err);
@@ -199,14 +180,12 @@ export class Mc implements OnInit, OnDestroy {
       // Ending game and starting marking
       this.api.post('/api/marking/trigger-all-rounds', {})
         .subscribe({
-          next: (data: any) => {
-            console.log('Rounds triggered:', data);
+          next: () => {
             // Then enable marking mode
             this.api.post('/api/marking/toggle-mode', {})
               .subscribe({
                 next: (modeData: any) => {
                   this.markingMode = modeData.marking_mode;
-                  console.log('Marking mode enabled');
                 },
                 error: (err) => {
                   console.error('Error enabling marking mode', err);
@@ -223,7 +202,6 @@ export class Mc implements OnInit, OnDestroy {
         .subscribe({
           next: (data: any) => {
             this.markingMode = data.marking_mode;
-            console.log('Game resumed');
           },
           error: (err) => {
             console.error('Error toggling marking mode', err);
@@ -267,7 +245,6 @@ export class Mc implements OnInit, OnDestroy {
             .sort((a, b) => b.score - a.score);
 
           this.showResults = true;
-          console.log('Detailed results:', data.results);
         },
         error: (err) => {
           console.error('Error loading marking results', err);

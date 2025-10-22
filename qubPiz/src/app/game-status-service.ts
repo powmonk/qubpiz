@@ -1,17 +1,9 @@
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 import { BehaviorSubject, interval, Subscription } from 'rxjs';
-import { switchMap, tap } from 'rxjs/operators';
+import { switchMap, tap, shareReplay } from 'rxjs/operators';
 import { ApiService } from './api.service';
-
-interface GameStatus {
-  active: boolean;
-  status: string;
-  current_round_id: number | null;
-  current_round_type: string | null;
-  current_round_name: string | null;
-  marking_mode: boolean;
-}
+import { GameStatus } from './shared/types';
 
 @Injectable({
   providedIn: 'root'
@@ -69,11 +61,13 @@ export class GameStatusService {
     }
 
     // Fetch immediately first, then poll every 3 seconds
+    // Using shareReplay to ensure multiple subscribers don't trigger multiple HTTP requests
     const fetchStatus = () => this.api.get<GameStatus>('/api/game/status').pipe(
       tap(data => {
         this.gameStatus$.next(data);
         this.handleRedirection(data);
-      })
+      }),
+      shareReplay(1)
     );
 
     // Initial fetch
@@ -81,8 +75,8 @@ export class GameStatusService {
       error: (error) => console.error('Initial game status fetch error:', error)
     });
 
-    // Then poll every 3 seconds
-    this.pollSubscription = interval(3000).pipe(
+    // Then poll every 5 seconds (optimized for low-spec servers)
+    this.pollSubscription = interval(5000).pipe(
       switchMap(() => fetchStatus())
     ).subscribe({
       error: (error) => console.error('Game status polling error:', error)
@@ -153,9 +147,5 @@ export class GameStatusService {
         this.router.navigate(['/'], { replaceUrl: true });
       }
     }
-  }
-
-  ngOnDestroy() {
-    this.pollSubscription.unsubscribe();
   }
 }
