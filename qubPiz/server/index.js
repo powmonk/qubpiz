@@ -43,6 +43,7 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
+
 const upload = multer({ 
   storage: storage,
   fileFilter: fileFilter,
@@ -1762,11 +1763,11 @@ app.post('/api/sessions/:code/end', async (req, res) => {
 
 // Serve static files from the Angular app (in production)
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../dist/qub-piz/browser')));
+  app.use(express.static(path.join(__dirname, '../dist/qubPiz/browser')));
 
   // All non-API routes should redirect to the Angular app
   app.get(/^(?!\/api).*/, (req, res) => {
-    res.sendFile(path.join(__dirname, '../dist/qub-piz/browser/index.html'));
+    res.sendFile(path.join(__dirname, '../dist/qubPiz/browser/index.html'));
   });
 }
 
