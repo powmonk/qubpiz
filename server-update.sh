@@ -73,6 +73,55 @@ npm install
 npm run build
 print_success "Frontend built successfully"
 
+# Update Nginx configuration
+print_info "Updating Nginx configuration..."
+sudo tee /etc/nginx/sites-available/qubpiz > /dev/null <<'NGINX_EOF'
+server {
+    listen 80;
+    server_name qubpiz.com www.qubpiz.com _;
+
+    # Enable gzip compression
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_types text/plain text/css text/xml text/javascript application/json application/javascript application/xml+rss application/rss+xml;
+    gzip_min_length 1000;
+
+    # Let's Encrypt verification
+    location /.well-known/acme-challenge/ {
+        root /var/www/qubpiz/qubPiz/dist/qubPiz/browser;
+        try_files $uri =404;
+    }
+
+    # Serve Angular app
+    location / {
+        root /var/www/qubpiz/qubPiz/dist/qubPiz/browser;
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Proxy API requests to Express
+    location /api {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+
+    # Serve uploaded images
+    location /uploads {
+        alias /var/www/qubpiz/qubPiz/server/uploads;
+    }
+}
+NGINX_EOF
+
+sudo nginx -t && sudo systemctl reload nginx
+print_success "Nginx configuration updated"
+
 # Restart application
 print_info "Starting application..."
 cd server
