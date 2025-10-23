@@ -166,10 +166,11 @@ server {
     gzip_types text/plain text/css text/xml text/javascript application/json application/javascript application/xml+rss application/rss+xml;
     gzip_min_length 1000;
 
-    # Let's Encrypt verification
-    location /.well-known/acme-challenge/ {
-        root /var/www/qubpiz/qubPiz/dist/qubPiz/browser;
-        try_files $uri =404;
+    # Let's Encrypt verification (must be before / location)
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/letsencrypt;
+        default_type "text/plain";
+        allow all;
     }
 
     # Serve Angular app
