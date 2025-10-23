@@ -6,7 +6,7 @@ import { QuestionManager } from './question-manager/question-manager';
 import { GameStatusService } from '../game-status-service';
 import { ApiService } from '../api.service';
 import { Subscription } from 'rxjs';
-import { Quiz, Round } from '../shared/types';
+import { Quiz, Round, GameSession } from '../shared/types';
 
 @Component({
   selector: 'app-mc',
@@ -19,10 +19,12 @@ import { Quiz, Round } from '../shared/types';
 export class Mc implements OnInit, OnDestroy {
   currentQuiz: Quiz | null = null;
   allQuizzes: Quiz[] = [];
+  archivedQuizzes: Quiz[] = [];
   selectedRound: Round | null = null;
 
   showNewQuizForm: boolean = false;
   showQuizList: boolean = false;
+  showArchivedQuizzes: boolean = false;
   newQuizName: string = '';
   newQuizDate: string = new Date().toISOString().split('T')[0];
 
@@ -32,35 +34,96 @@ export class Mc implements OnInit, OnDestroy {
   markingResults: Array<{player: string, score: number, possible: number, markedBy: string}> = [];
   showResults: boolean = false;
 
+  // NEW: Session management properties
+  activeSessions: GameSession[] = [];
+  showSessionManagement: boolean = false;
+  currentSessionCode: string | null = null; // The session MC is currently managing
+  ownerId: string = ''; // UUID identifying this MC
+  viewMode: 'session-lobby' | 'session-control' = 'session-lobby';
+  mySessions: GameSession[] = [];
+  selectedSession: GameSession | null = null;
+  currentRoundId: number | null = null; // Track current round from game status
+
   private gameStatusSubscription?: Subscription;
+  private readonly OWNER_ID_KEY = 'qubpiz_mc_owner_id';
 
   constructor(
     private api: ApiService,
     private gameStatusService: GameStatusService
-  ) {}
+  ) {
+    // Generate or retrieve MC owner ID
+    this.ownerId = this.getOrCreateOwnerId();
+  }
+
+  private getOrCreateOwnerId(): string {
+    if (typeof localStorage !== 'undefined') {
+      let ownerId = localStorage.getItem(this.OWNER_ID_KEY);
+      if (!ownerId) {
+        // Generate UUID v4
+        ownerId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+          const r = Math.random() * 16 | 0;
+          const v = c === 'x' ? r : (r & 0x3 | 0x8);
+          return v.toString(16);
+        });
+        localStorage.setItem(this.OWNER_ID_KEY, ownerId);
+      }
+      return ownerId;
+    }
+    return 'temp-owner-id';
+  }
 
   handleDisplayStateChanged() {
-    this.loadCurrentQuiz();
-    this.loadPlayers(); // Good to reload player list too
+    // For sessions, reload quiz data from the session
+    if (this.currentSessionCode && this.selectedSession) {
+      this.api.get<{quiz: Quiz}>(`/api/quiz/${this.selectedSession.quiz_id}`)
+        .subscribe({
+          next: (data) => {
+            this.currentQuiz = data.quiz;
+          },
+          error: (err) => {
+            console.error('Error reloading quiz', err);
+          }
+        });
+      this.loadPlayersForSession();
+    } else {
+      // OLD SYSTEM: Fallback for backward compatibility
+      this.loadCurrentQuiz();
+      this.loadPlayers();
+    }
   }
 
   ngOnInit() {
-    this.loadCurrentQuiz();
+    // Load MC's sessions and quizzes
+    this.loadMySessions();
     this.loadAllQuizzes();
-    this.loadPlayers();
 
     // Subscribe to game status updates from the service instead of polling directly
     this.gameStatusSubscription = this.gameStatusService.gameStatus$.subscribe(data => {
       if (!data) return;
 
-      // Update marking mode from game status
+      // Update marking mode and current round from game status
       this.markingMode = data.marking_mode;
+      this.currentRoundId = data.current_round_id;
 
-      // Load players when game is active
-      if (data.status === 'active' || data.status === 'closed') {
-        this.loadPlayers();
+      // Load players when in a session
+      if (this.currentSessionCode) {
+        this.loadPlayersForSession();
       }
     });
+  }
+
+  // NEW: Load MC's own sessions
+  loadMySessions() {
+    this.api.get<{sessions: any[]}>(`/api/sessions/my-sessions?owner_id=${this.ownerId}`)
+      .subscribe({
+        next: (data) => {
+          this.mySessions = data.sessions;
+          console.log('Loaded my sessions:', this.mySessions);
+        },
+        error: (err) => {
+          console.error('Error loading my sessions', err);
+        }
+      });
   }
 
   loadCurrentQuiz() {
@@ -112,7 +175,49 @@ export class Mc implements OnInit, OnDestroy {
         this.selectedRound = null;
       });
   }
-  // NEW METHOD: Load players (from server)
+
+  loadArchivedQuizzes() {
+    this.api.get<{quizzes: Quiz[]}>('/api/quizzes/archived')
+      .subscribe(data => {
+        this.archivedQuizzes = data.quizzes;
+      });
+  }
+
+  restoreQuiz(quizId: number, event: Event) {
+    event.stopPropagation();
+    this.api.post(`/api/quiz/${quizId}/restore`, {})
+      .subscribe(() => {
+        this.loadAllQuizzes();
+        this.loadArchivedQuizzes();
+      });
+  }
+
+  toggleArchivedQuizzes() {
+    this.showArchivedQuizzes = !this.showArchivedQuizzes;
+    if (this.showArchivedQuizzes) {
+      this.loadArchivedQuizzes();
+    }
+  }
+  // NEW METHOD: Load players for session
+  loadPlayersForSession() {
+    if (!this.currentSessionCode) {
+      this.players = [];
+      return;
+    }
+
+    this.api.get<{players: string[]}>(`/api/players?session=${this.currentSessionCode}`)
+      .subscribe({
+        next: (data) => {
+          this.players = data.players;
+        },
+        error: (err) => {
+          console.error('Error loading players', err);
+          this.players = [];
+        }
+      });
+  }
+
+  // OLD: Load players (for backwards compatibility)
   loadPlayers() {
     this.api.get<{players: string[]}>('/api/players')
       .subscribe({
@@ -121,14 +226,19 @@ export class Mc implements OnInit, OnDestroy {
         },
         error: (err) => {
           // Keep players empty if API call fails
-          this.players = []; 
+          this.players = [];
         }
       });
   }
 
   // NEW METHOD: Remove individual player
   removePlayer(playerName: string) {
-    this.api.delete<{players: string[]}>(`/api/player/remove/${playerName}`)
+    // NEW: Pass session parameter if managing a session
+    const url = this.currentSessionCode
+      ? `/api/player/remove/${playerName}?session=${this.currentSessionCode}`
+      : `/api/player/remove/${playerName}`;
+
+    this.api.delete<{players: string[]}>(url)
       .subscribe({
         next: (data) => {
           this.players = data.players;
@@ -158,26 +268,24 @@ export class Mc implements OnInit, OnDestroy {
       return;
     }
 
-    this.api.post<{quiz: Quiz}>('/api/game/toggle-status', {})
+    // NEW: Include session parameter if managing a session
+    const url = this.currentSessionCode
+      ? `/api/game/toggle-status?session=${this.currentSessionCode}`
+      : '/api/game/toggle-status';
+
+    this.api.post<{quiz?: Quiz, session?: GameSession}>(url, {})
       .subscribe({
         next: (data) => {
-          this.currentQuiz = data.quiz;
-          this.loadPlayers();
-
-          // If starting a new game (status = active from waiting), clear old marking data
-          if (data.quiz.status === 'active') {
-            this.clearMarkingData();
+          // For sessions, we don't update currentQuiz (it's a template)
+          // For old system, update currentQuiz
+          if (data.quiz) {
+            this.currentQuiz = data.quiz;
           }
 
-          // If opening lobby (status = active), disable marking mode
-          if (data.quiz.status === 'active' && this.markingMode) {
-            this.api.post('/api/marking/toggle-mode', {})
-              .subscribe({
-                next: (modeData: any) => {
-                  this.markingMode = modeData.marking_mode;
-                }
-              });
-          }
+          this.loadPlayersForSession();
+
+          // Clear marking data when appropriate
+          // Note: Status is now tracked in game status, not Quiz object
         },
         error: (err) => {
           console.error('Error toggling game status', err);
@@ -191,13 +299,20 @@ export class Mc implements OnInit, OnDestroy {
 
   // Toggle between game mode and marking mode
   toggleGameAndMarking() {
+    const triggerUrl = this.currentSessionCode
+      ? `/api/marking/trigger-all-rounds?session=${this.currentSessionCode}`
+      : '/api/marking/trigger-all-rounds';
+    const toggleUrl = this.currentSessionCode
+      ? `/api/marking/toggle-mode?session=${this.currentSessionCode}`
+      : '/api/marking/toggle-mode';
+
     if (!this.markingMode) {
       // Ending game and starting marking
-      this.api.post('/api/marking/trigger-all-rounds', {})
+      this.api.post(triggerUrl, {})
         .subscribe({
           next: () => {
             // Then enable marking mode
-            this.api.post('/api/marking/toggle-mode', {})
+            this.api.post(toggleUrl, {})
               .subscribe({
                 next: (modeData: any) => {
                   this.markingMode = modeData.marking_mode;
@@ -213,7 +328,7 @@ export class Mc implements OnInit, OnDestroy {
         });
     } else {
       // Resume game (disable marking mode)
-      this.api.post('/api/marking/toggle-mode', {})
+      this.api.post(toggleUrl, {})
         .subscribe({
           next: (data: any) => {
             this.markingMode = data.marking_mode;
@@ -226,8 +341,46 @@ export class Mc implements OnInit, OnDestroy {
   }
 
   // Marking-related methods
+  enableMarkingMode() {
+    // Toggle marking mode
+    const url = this.currentSessionCode
+      ? `/api/marking/toggle-mode?session=${this.currentSessionCode}`
+      : '/api/marking/toggle-mode';
+
+    this.api.post(url, {})
+      .subscribe({
+        next: (data: any) => {
+          this.markingMode = data.marking_mode;
+        },
+        error: (err) => {
+          console.error('Error toggling marking mode', err);
+        }
+      });
+  }
+
+  triggerMarking() {
+    // Trigger marking for all rounds
+    const url = this.currentSessionCode
+      ? `/api/marking/trigger-all-rounds?session=${this.currentSessionCode}`
+      : '/api/marking/trigger-all-rounds';
+
+    this.api.post(url, {})
+      .subscribe({
+        next: () => {
+          console.log('All rounds assigned for marking');
+        },
+        error: (err) => {
+          console.error('Error triggering rounds', err);
+        }
+      });
+  }
+
   viewMarkingResults() {
-    this.api.get<{results: any[]}>('/api/marking/results')
+    const url = this.currentSessionCode
+      ? `/api/marking/results?session=${this.currentSessionCode}`
+      : '/api/marking/results';
+
+    this.api.get<{results: any[]}>(url)
       .subscribe({
         next: (data) => {
           if (data.results.length === 0) {
@@ -269,7 +422,11 @@ export class Mc implements OnInit, OnDestroy {
 
   // Clear all marking data for the current quiz
   clearMarkingData() {
-    this.api.post('/api/marking/clear', {})
+    const url = this.currentSessionCode
+      ? `/api/marking/clear?session=${this.currentSessionCode}`
+      : '/api/marking/clear';
+
+    this.api.post(url, {})
       .subscribe({
         next: (data: any) => {
           this.markingResults = [];
@@ -279,6 +436,129 @@ export class Mc implements OnInit, OnDestroy {
         },
         error: (err) => {
           console.error('Error clearing marking data', err);
+        }
+      });
+  }
+
+  // ============= SESSION MANAGEMENT METHODS (NEW) =============
+
+  // NEW: Create session directly from quiz object (from session lobby)
+  createGameSessionFromQuiz(quiz: Quiz) {
+    this.api.post('/api/sessions/create', { quiz_id: quiz.id, owner_id: this.ownerId })
+      .subscribe({
+        next: (data: any) => {
+          console.log('Session created:', data.sessionCode);
+          console.log('Session data:', data.session);
+          console.log('Quiz data:', data.quiz);
+
+          // Set the quiz immediately from the response (no need to fetch again)
+          this.currentQuiz = data.quiz;
+
+          // Automatically enter this session
+          this.enterSession(data.session);
+
+          // Hide the quiz list
+          this.showQuizList = false;
+          // Reload sessions list
+          this.loadMySessions();
+        },
+        error: (err) => {
+          console.error('Error creating session', err);
+        }
+      });
+  }
+
+  // OLD: Create session from current quiz (for backwards compatibility)
+  createGameSession() {
+    if (!this.currentQuiz) {
+      console.error('No quiz selected');
+      return;
+    }
+
+    this.api.post('/api/sessions/create', { quiz_id: this.currentQuiz.id, owner_id: this.ownerId })
+      .subscribe({
+        next: (data: any) => {
+          console.log('Session created:', data.sessionCode);
+          // Automatically enter this session
+          this.enterSession(data.session);
+        },
+        error: (err) => {
+          console.error('Error creating session', err);
+        }
+      });
+  }
+
+  // NEW: Enter a session (switch to session control panel)
+  enterSession(session: any) {
+    this.selectedSession = session;
+    this.currentSessionCode = session.session_code;
+    this.viewMode = 'session-control';
+    console.log('Entered session:', this.currentSessionCode);
+    console.log('Current quiz when entering session:', this.currentQuiz);
+
+    // Load the quiz for this session (only if not already loaded)
+    if (!this.currentQuiz || this.currentQuiz.id !== session.quiz_id) {
+      this.api.get<{quiz: Quiz}>(`/api/quiz/${session.quiz_id}`)
+        .subscribe({
+          next: (data) => {
+            this.currentQuiz = data.quiz;
+            console.log('Quiz loaded:', this.currentQuiz);
+            // Load players for this session
+            this.loadPlayersForSession();
+          },
+          error: (err) => {
+            console.error('Error loading quiz for session', err);
+          }
+        });
+    } else {
+      console.log('Quiz already loaded, skipping fetch');
+      // Quiz already loaded, just load players
+      this.loadPlayersForSession();
+    }
+
+    // Set this session as the active one for game status polling
+    this.gameStatusService.setCurrentSession(this.currentSessionCode);
+  }
+
+  // NEW: Exit session (back to session lobby)
+  exitSession() {
+    this.selectedSession = null;
+    this.currentSessionCode = null;
+    this.currentQuiz = null;
+    this.selectedRound = null;
+    this.viewMode = 'session-lobby';
+
+    // Clear the session from game status polling
+    this.gameStatusService.setCurrentSession(null);
+
+    // Reload the sessions list
+    this.loadMySessions();
+  }
+
+  loadActiveSessions() {
+    this.api.get<{sessions: any[]}>('/api/sessions/active/all')
+      .subscribe({
+        next: (data) => {
+          this.activeSessions = data.sessions;
+        },
+        error: (err) => {
+          console.error('Error loading active sessions', err);
+          this.activeSessions = [];
+        }
+      });
+  }
+
+
+  endSession(sessionCode: string) {
+    this.api.post(`/api/sessions/${sessionCode}/end`, {})
+      .subscribe({
+        next: () => {
+          console.log('Session ended:', sessionCode);
+          // Exit session and return to lobby
+          this.exitSession();
+        },
+        error: (err) => {
+          console.error('Error ending session', err);
         }
       });
   }

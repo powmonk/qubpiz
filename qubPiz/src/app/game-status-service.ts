@@ -11,12 +11,16 @@ import { GameStatus } from './shared/types';
 export class GameStatusService {
   private pollSubscription: Subscription = new Subscription();
   private readonly STORAGE_KEY = 'qubpiz_player_name';
+  private readonly SESSION_KEY = 'qubpiz_session_code';
 
   // Game status observable
   public gameStatus$ = new BehaviorSubject<GameStatus | null>(null);
 
   // Current player name observable - initialized from localStorage
   public currentPlayer$ = new BehaviorSubject<string | null>(this.getStoredPlayerName());
+
+  // Current session code observable - initialized from localStorage
+  public currentSession$ = new BehaviorSubject<string | null>(this.getStoredSession());
 
   constructor(
     private router: Router,
@@ -29,6 +33,14 @@ export class GameStatusService {
   private getStoredPlayerName(): string | null {
     if (typeof localStorage !== 'undefined') {
       return localStorage.getItem(this.STORAGE_KEY);
+    }
+    return null;
+  }
+
+  // Get session code from localStorage
+  private getStoredSession(): string | null {
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem(this.SESSION_KEY);
     }
     return null;
   }
@@ -55,6 +67,25 @@ export class GameStatusService {
     return this.currentPlayer$.value;
   }
 
+  // Set the current session (called from lobby when joining via session URL)
+  setCurrentSession(sessionCode: string | null) {
+    this.currentSession$.next(sessionCode);
+    if (typeof localStorage !== 'undefined') {
+      if (sessionCode) {
+        localStorage.setItem(this.SESSION_KEY, sessionCode);
+      } else {
+        localStorage.removeItem(this.SESSION_KEY);
+      }
+    }
+    // Restart polling with new session
+    this.startPolling();
+  }
+
+  // Get current session code
+  getCurrentSession(): string | null {
+    return this.currentSession$.value;
+  }
+
   private startPolling() {
     if (this.pollSubscription) {
       this.pollSubscription.unsubscribe();
@@ -62,13 +93,21 @@ export class GameStatusService {
 
     // Fetch immediately first, then poll every 3 seconds
     // Using shareReplay to ensure multiple subscribers don't trigger multiple HTTP requests
-    const fetchStatus = () => this.api.get<GameStatus>('/api/game/status').pipe(
-      tap(data => {
-        this.gameStatus$.next(data);
-        this.handleRedirection(data);
-      }),
-      shareReplay(1)
-    );
+    const fetchStatus = () => {
+      // NEW: Include session parameter if present
+      const sessionCode = this.getCurrentSession();
+      const url = sessionCode
+        ? `/api/game/status?session=${sessionCode}`
+        : '/api/game/status';
+
+      return this.api.get<GameStatus>(url).pipe(
+        tap(data => {
+          this.gameStatus$.next(data);
+          this.handleRedirection(data);
+        }),
+        shareReplay(1)
+      );
+    };
 
     // Initial fetch
     fetchStatus().subscribe({

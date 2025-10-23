@@ -683,3 +683,83 @@ img {
   font-size: 12px;
   text-transform: capitalize;
 }
+
+/* ============================================
+   DATA TABLE STYLES (Players, Rounds)
+   ============================================ */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: var(--spacing-md) 0;
+}
+
+.data-table tbody tr {
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  transition: background-color 0.2s ease;
+  cursor: pointer;
+}
+
+.data-table tbody tr.odd {
+  background-color: var(--bg-tertiary);
+}
+
+.data-table tbody tr:hover {
+  background-color: var(--bg-hover);
+}
+
+.data-table tbody tr.active {
+  background-color: rgba(0, 123, 255, 0.2);
+  border-left: 3px solid var(--color-primary);
+}
+
+.data-table tbody tr.is-displayed {
+  background-color: rgba(40, 167, 69, 0.2);
+  border-left: 3px solid var(--color-success);
+}
+
+.data-table td {
+  padding: var(--spacing-md);
+  vertical-align: middle;
+}
+
+.data-table .player-name {
+  font-size: 16px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.data-table .round-info-cell {
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
+.data-table .round-info-cell strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.data-table .round-info-cell .round-type {
+  margin-left: 8px;
+  font-size: 11px;
+}
+
+.data-table .round-actions-cell {
+  text-align: center;
+  width: 150px;
+}
+
+.data-table .action-cell {
+  width: 60px;
+  text-align: right;
+  padding-right: var(--spacing-lg);
+}
+
+.data-table .action-cell .delete-btn-small {
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.data-table tr:hover .action-cell .delete-btn-small {
+  opacity: 1;
+}

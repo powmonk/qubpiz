@@ -29,28 +29,33 @@
         No rounds created yet.
     </div>
 
-    <ul class="round-list">
-        <li *ngFor="let round of rounds" 
-            (click)="selectRound(round)"
-            [class.active]="selectedRound?.id === round.id"
-            [class.is-displayed]="currentDisplayedRoundId === round.id">
-            
-            <div class="round-item-main">
-                <div class="round-info">
+    <table *ngIf="rounds.length > 0" class="data-table">
+        <tbody>
+            <tr *ngFor="let round of rounds; let i = index"
+                (click)="selectRound(round)"
+                [class.odd]="i % 2 === 1"
+                [class.active]="selectedRound?.id === round.id"
+                [class.is-displayed]="currentDisplayedRoundId === round.id">
+
+                <td class="round-info-cell">
                     <strong>Round {{ round.round_order }}: {{ round.name }}</strong>
                     <span class="round-type">({{ round.round_type | titlecase }})</span>
-                </div>
-            </div>
-            
-            <div class="round-actions">
-                <button (click)="setDisplayRound(round); $event.stopPropagation()" 
-                        [class]="currentDisplayedRoundId === round.id ? 'display-active-btn' : 'display-btn'"
-                        [disabled]="currentDisplayedRoundId === round.id">
-                    {{ currentDisplayedRoundId === round.id ? 'DISPLAYING' : 'Display Round' }}
-                </button>
-                
-                <button (click)="deleteRound(round.id, $event); $event.stopPropagation()" class="delete-btn-small">×</button>
-            </div>
-        </li>
-    </ul>
+                </td>
+
+                <td class="round-actions-cell">
+                    <button (click)="setDisplayRound(round); $event.stopPropagation()"
+                            [class]="currentDisplayedRoundId === round.id ? 'display-active-btn' : 'display-btn'"
+                            [disabled]="currentDisplayedRoundId === round.id">
+                        {{ currentDisplayedRoundId === round.id ? 'DISPLAYING' : 'Display Round' }}
+                    </button>
+                </td>
+
+                <td class="action-cell">
+                    <button (click)="deleteRound(round.id, $event); $event.stopPropagation()"
+                            class="delete-btn-small"
+                            title="Delete round">×</button>
+                </td>
+            </tr>
+        </tbody>
+    </table>
 </div>

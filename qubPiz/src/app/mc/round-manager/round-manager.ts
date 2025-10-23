@@ -17,6 +17,7 @@ export class RoundManager implements OnInit, OnChanges {
   @Input() currentQuizId: number | null = null;
   // The ID of the round currently being displayed to players (from MC parent)
   @Input() currentDisplayedRoundId: number | null = null;
+  @Input() sessionCode: string | null = null; // NEW: Session code for multi-session support
   @Output() roundSelected = new EventEmitter<Round>();
   @Output() displayStateChanged = new EventEmitter<void>();
 
@@ -47,7 +48,7 @@ export class RoundManager implements OnInit, OnChanges {
   loadRounds() {
     if (!this.currentQuizId) return;
 
-    this.api.get<{rounds: Round[]}>(`/api/rounds?quizId=${this.currentQuizId}`)
+    this.api.get<{rounds: Round[]}>(`/api/rounds?quiz_id=${this.currentQuizId}`)
       .subscribe(data => {
         this.rounds = data.rounds;
       });
@@ -61,7 +62,8 @@ export class RoundManager implements OnInit, OnChanges {
 
     this.api.post('/api/rounds', {
       name: this.newRoundName,
-      round_type: this.newRoundType
+      round_type: this.newRoundType,
+      quiz_id: this.currentQuizId  // Add quiz_id for session support
     }).subscribe(() => {
       this.loadRounds();
       this.newRoundName = '';
@@ -88,14 +90,19 @@ export class RoundManager implements OnInit, OnChanges {
 
   // In round-manager.ts
 setDisplayRound(round: Round | null) {
-  const roundId = round ? round.id : 0; 
+  const roundId = round ? round.id : 0;
 
   // SELECT the round so the question manager appears
   if (round) {
     this.selectRound(round);
   }
 
-  this.api.post(`/api/game/set-round/${roundId}`, {})
+  // NEW: Include session parameter if managing a session
+  const url = this.sessionCode
+    ? `/api/game/set-round/${roundId}?session=${this.sessionCode}`
+    : `/api/game/set-round/${roundId}`;
+
+  this.api.post(url, {})
     .subscribe({
       next: () => {
         // Fire event to tell the parent Mc component to refresh currentQuiz
@@ -103,7 +110,7 @@ setDisplayRound(round: Round | null) {
       },
       error: (err) => {
         console.error('Error setting round display', err);
-        alert('Error setting round display.');
+        console.error('Failed to set round display.');
       }
     });
   }

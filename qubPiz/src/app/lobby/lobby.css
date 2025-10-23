@@ -12,3 +12,78 @@
   color: var(--text-secondary);
   margin-bottom: 20px;
 }
+
+/* NEW: Session display styles */
+.session-header {
+  text-align: center;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.session-code-display {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.session-code-display strong {
+  color: var(--color-primary);
+  font-family: monospace;
+  font-size: 18px;
+  background-color: var(--bg-primary);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+}
+
+/* NEW: Session entry box styles */
+.session-entry-box {
+  margin-top: 30px;
+  padding: 20px;
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.session-prompt {
+  color: var(--text-secondary);
+  margin-bottom: 15px;
+  font-size: 16px;
+}
+
+.session-code-input {
+  width: 100%;
+  padding: 12px;
+  font-size: 18px;
+  font-family: monospace;
+  text-transform: uppercase;
+  text-align: center;
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  margin-bottom: 15px;
+}
+
+.session-code-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.join-session-btn {
+  width: 100%;
+  padding: 12px;
+  font-size: 16px;
+  background-color: var(--color-primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.join-session-btn:hover {
+  background-color: var(--color-primary-dark);
+}

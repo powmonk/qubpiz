@@ -1,11 +1,36 @@
-<div *ngIf="gameActive" class="lobby-container">
+<!-- NEW: Show session error if invalid -->
+<div *ngIf="sessionError" class="waiting-screen">
+  <h1>Session Error</h1>
+  <p class="error-message">{{ sessionError }}</p>
+  <div class="session-entry-box">
+    <p class="session-prompt">Try another session code?</p>
+    <form (ngSubmit)="joinSessionByCode()">
+      <input
+        type="text"
+        [(ngModel)]="enteredSessionCode"
+        name="sessionCode"
+        placeholder="Enter session code (e.g. A1B)"
+        class="session-code-input"
+        maxlength="3"
+      />
+      <button type="submit" class="join-session-btn">Join Session</button>
+    </form>
+  </div>
+</div>
+
+<!-- NEW: Session-based lobby (always show if valid session) -->
+<div *ngIf="sessionCode && !sessionError" class="lobby-container">
   <div class="left-section">
-    <h1>Quiz Lobby</h1>
-    
+    <!-- Show session info -->
+    <div class="session-header">
+      <h1>{{ sessionQuiz?.quiz_name || 'Quiz Lobby' }}</h1>
+      <p class="session-code-display">Session: <strong>{{ sessionCode }}</strong></p>
+    </div>
+
     <!-- Show join form if not logged in -->
     <form *ngIf="!isPlayerLoggedIn" (ngSubmit)="onSubmit()">
-      <input 
-        type="text" 
+      <input
+        type="text"
         [(ngModel)]="playerName"
         name="playerName"
         placeholder="Enter your name"
@@ -20,7 +45,7 @@
       <button (click)="logout()" class="logout-btn">Leave Game</button>
     </div>
   </div>
-  
+
   <div class="right-section">
     <h3>Players Joined ({{ players.length }})</h3>
     <ul>
@@ -29,7 +54,39 @@
   </div>
 </div>
 
-<div *ngIf="quizRunning && !gameActive" class="waiting-screen">
+<!-- OLD SYSTEM: Show when no session code (fallback for backwards compatibility) -->
+<div *ngIf="!sessionCode && !sessionError && gameActive" class="lobby-container">
+  <div class="left-section">
+    <h1>Quiz Lobby</h1>
+
+    <!-- Show join form if not logged in -->
+    <form *ngIf="!isPlayerLoggedIn" (ngSubmit)="onSubmit()">
+      <input
+        type="text"
+        [(ngModel)]="playerName"
+        name="playerName"
+        placeholder="Enter your name"
+      />
+      <button type="submit">Join Game</button>
+    </form>
+
+    <!-- Show player info if logged in -->
+    <div *ngIf="isPlayerLoggedIn" class="player-status">
+      <p class="welcome-message">Welcome, <strong>{{ playerName }}</strong>!</p>
+      <p class="status-message">You're in the game. Waiting for MC to start a round...</p>
+      <button (click)="logout()" class="logout-btn">Leave Game</button>
+    </div>
+  </div>
+
+  <div class="right-section">
+    <h3>Players Joined ({{ players.length }})</h3>
+    <ul>
+      <li *ngFor="let player of players">{{ player }}</li>
+    </ul>
+  </div>
+</div>
+
+<div *ngIf="!sessionCode && !sessionError && quizRunning && !gameActive" class="waiting-screen">
   <h1>Game In Progress</h1>
   <p>The quiz is currently running. Waiting for the MC to display the next question or open the lobby for new players.</p>
   <div *ngIf="isPlayerLoggedIn" class="player-logged-in-status">
@@ -38,7 +95,23 @@
   </div>
 </div>
 
-<div *ngIf="!quizRunning" class="waiting-screen">
+<div *ngIf="!sessionCode && !sessionError && !quizRunning" class="waiting-screen">
   <h1>No Active Game</h1>
   <p>Waiting for MC to start a game...</p>
+
+  <!-- NEW: Session code entry -->
+  <div class="session-entry-box">
+    <p class="session-prompt">Have a session code?</p>
+    <form (ngSubmit)="joinSessionByCode()">
+      <input
+        type="text"
+        [(ngModel)]="enteredSessionCode"
+        name="sessionCode"
+        placeholder="Enter session code (e.g. A1B)"
+        class="session-code-input"
+        maxlength="3"
+      />
+      <button type="submit" class="join-session-btn">Join Session</button>
+    </form>
+  </div>
 </div>

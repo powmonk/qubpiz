@@ -1,5 +1,8 @@
 <div class="marking-container">
-  <h1>Peer Marking</h1>
+  <div class="marking-header">
+    <h1>Peer Marking</h1>
+    <button (click)="backToLobby()" class="back-btn">← Back to Lobby</button>
+  </div>
 
   <div *ngIf="loading" class="loading">
     <p>Loading marking assignments...</p>

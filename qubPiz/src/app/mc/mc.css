@@ -319,3 +319,62 @@ div {
     color: var(--text-muted);
     font-style: italic;
 }
+
+/* ---------------------------------------------------------------- */
+/* Session Management Styles (NEW - Multi-Game Support) */
+/* ---------------------------------------------------------------- */
+
+.session-management {
+    display: flex;
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.active-sessions-panel {
+    background-color: var(--bg-secondary);
+    padding: 20px;
+    border-radius: var(--radius-md);
+    margin-bottom: 30px;
+    border: 2px solid var(--color-primary);
+}
+
+.active-sessions-panel h3 {
+    margin-top: 0;
+    color: var(--color-primary);
+}
+
+.session-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    margin-bottom: 10px;
+    background-color: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+}
+
+.session-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex: 1;
+}
+
+.session-code {
+    font-size: 1.3em;
+    color: var(--color-primary);
+    font-family: monospace;
+    background-color: var(--bg-primary);
+    padding: 5px 10px;
+    border-radius: var(--radius-sm);
+}
+
+.session-details {
+    color: var(--text-secondary);
+}
+
+.session-actions {
+    display: flex;
+    gap: 10px;
+}

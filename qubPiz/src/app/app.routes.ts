@@ -7,6 +7,7 @@ import { Marking } from './marking/marking';
 
 export const routes: Routes = [
   { path: '', component: Lobby },
+  { path: 'lobby', component: Lobby },
   { path: 'mc', component: Mc },
   { path: 'round/picture', component: RoundComponent, data: { roundType: 'picture' } },
   { path: 'round/question', component: RoundComponent, data: { roundType: 'question' } },

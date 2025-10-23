@@ -1,6 +1,8 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { GameStatusService } from '../game-status-service';
 import { ApiService } from '../api.service';
 import { Assignment } from '../shared/types';
@@ -12,15 +14,17 @@ import { Assignment } from '../shared/types';
   templateUrl: './marking.html',
   styleUrl: './marking.css'
 })
-export class Marking implements OnInit {
+export class Marking implements OnInit, OnDestroy {
   assignments: Assignment[] = [];
   playerName: string = '';
   loading: boolean = true;
   errorMessage: string = '';
+  private gameStatusSubscription?: Subscription;
 
   constructor(
     private api: ApiService,
-    private gameStatusService: GameStatusService
+    private gameStatusService: GameStatusService,
+    private router: Router
   ) {}
 
   ngOnInit() {
@@ -32,13 +36,35 @@ export class Marking implements OnInit {
       return;
     }
 
+    // Subscribe to game status to detect when marking mode is disabled
+    this.gameStatusSubscription = this.gameStatusService.gameStatus$.subscribe(data => {
+      if (data && !data.marking_mode) {
+        // Marking mode disabled, redirect back to lobby
+        this.router.navigate(['/lobby'], { replaceUrl: true });
+      }
+    });
+
     this.loadAssignments();
   }
 
+  backToLobby() {
+    this.router.navigate(['/lobby'], { replaceUrl: true });
+  }
+
+  ngOnDestroy() {
+    if (this.gameStatusSubscription) {
+      this.gameStatusSubscription.unsubscribe();
+    }
+  }
+
   loadAssignments() {
-    this.api.get<{ assignments: Assignment[] }>(
-      `/api/marking/assignments/${this.playerName}`
-    ).subscribe({
+    // Get session code from game status service
+    const sessionCode = this.gameStatusService.getCurrentSession();
+    const url = sessionCode
+      ? `/api/marking/assignments/${this.playerName}?session=${sessionCode}`
+      : `/api/marking/assignments/${this.playerName}`;
+
+    this.api.get<{ assignments: Assignment[] }>(url).subscribe({
       next: (data) => {
         this.assignments = data.assignments;
         this.loading = false;

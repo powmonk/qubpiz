@@ -85,9 +85,9 @@
       <div class="image-grid">
         <div *ngFor="let q of questions; let i = index" class="image-item">
           <div class="image-number">{{ i + 1 }}</div>
-          <img 
-            [src]="'http://localhost:3000' + q.image_url" 
-            class="image-thumbnail" 
+          <img
+            [src]="getImageUrl(q.image_url)"
+            class="image-thumbnail"
             alt="Question image"
           />
           <p class="image-answer"><strong>A:</strong> {{ q.answer }}</p>

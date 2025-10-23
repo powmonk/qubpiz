@@ -152,6 +152,13 @@ export class QuestionManager implements OnInit, OnChanges {
     }
   }
 
+  getImageUrl(path: string | null): string {
+    if (path) {
+      return `${this.api.apiBaseUrl}${path}`;
+    }
+    return '';
+  }
+
   resetForms() {
     this.newTextQuestion = { text: '', answer: '' };
     this.newImageItem = { imageUrl: '', answer: '' };

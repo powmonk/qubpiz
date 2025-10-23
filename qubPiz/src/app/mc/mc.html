@@ -1,144 +1,211 @@
 <div>
-  <h1>MC Control Panel</h1>
-  
-  <div class="quiz-actions">
-    <button (click)="showQuizList = !showQuizList" class="select-btn">
-      {{ showQuizList ? 'Hide Quiz List' : 'Select Quiz' }}
-    </button>
-    <button (click)="showNewQuizForm = !showNewQuizForm" class="create-btn">
-      {{ showNewQuizForm ? 'Cancel Creation' : 'Create New Quiz' }}
-    </button>
-  </div>
+  <!-- ========== SESSION LOBBY VIEW (Entry Point) ========== -->
+  <div *ngIf="viewMode === 'session-lobby'" class="session-lobby-view">
+    <h1>MC Control Panel</h1>
+    <p class="subtitle">Manage Your Game Sessions</p>
 
-  <div *ngIf="showQuizList" class="quiz-list">
-    <h3>All Quizzes</h3>
-    <div *ngIf="allQuizzes.length === 0" class="no-quizzes">
-      No quizzes created yet.
-    </div>
-    <ul>
-      <li *ngFor="let quiz of allQuizzes" (click)="selectQuiz(quiz.id)" 
-          [class.active]="currentQuiz?.id === quiz.id">
-        <div class="quiz-item">
-          <strong>{{ quiz.quiz_name }}</strong>
-          <span class="quiz-date">{{ quiz.quiz_date | date:'mediumDate' }}</span>
-          <button (click)="deleteQuiz(quiz.id, $event)" class="delete-btn-small">×</button>
-        </div>
-      </li>
-    </ul>
-  </div>
-
-  <div *ngIf="showNewQuizForm" class="quiz-form">
-    <h3>Create New Quiz</h3>
-    <label>Quiz Name</label>
-    <input 
-      type="text" 
-      [(ngModel)]="newQuizName" 
-      placeholder="e.g., Pub Quiz - October 21st"
-    />
-    
-    <label>Quiz Date</label>
-    <input 
-      type="date" 
-      [(ngModel)]="newQuizDate"
-    />
-    
-    <button (click)="createQuiz()" class="save-btn">Create Quiz</button>
-  </div>
-
-  <div *ngIf="currentQuiz" class="current-quiz">
-    <h2>{{ currentQuiz.quiz_name }}</h2>
-    <p class="quiz-date-display">{{ currentQuiz.quiz_date | date:'fullDate' }}</p>
-    
-    <div class="game-status-panel">
-      <button (click)="toggleGameStatus()"
-              [ngClass]="{
-                'start-game-btn': currentQuiz.status === 'waiting',
-                'end-game-btn': currentQuiz.status === 'active'
-              }">
-        <span *ngIf="currentQuiz.status === 'waiting'">Start Game & Open Lobby</span>
-        <span *ngIf="currentQuiz.status === 'active'">Close Lobby (Game Running)</span>
-        <span *ngIf="currentQuiz.status === 'closed'">Re-Open Lobby (Game Running)</span>
-      </button>
-      <p>Status: <strong>{{ currentQuiz.status | uppercase }}</strong></p>
-    </div>
-    
-    <div class="player-management">
-      <h3>Players in Game ({{ players.length }})</h3>
-      <div *ngIf="players.length === 0" class="no-players">
-        No players have joined yet.
+    <!-- Create New Session Section -->
+    <div class="create-section">
+      <h2>Start a New Session</h2>
+      <div class="quiz-selector">
+        <button (click)="showQuizList = !showQuizList" class="select-btn">
+          {{ showQuizList ? 'Hide Quizzes' : 'Select Quiz to Start Session' }}
+        </button>
+        <button (click)="showNewQuizForm = !showNewQuizForm" class="create-btn">
+          {{ showNewQuizForm ? 'Cancel' : 'Create New Quiz' }}
+        </button>
+        <button (click)="toggleArchivedQuizzes()" class="secondary-btn">
+          {{ showArchivedQuizzes ? 'Hide Archived' : 'View Archived Quizzes' }}
+        </button>
       </div>
-      <ul class="player-list">
-        <li *ngFor="let player of players">
-          <span>{{ player }}</span>
-          <button (click)="removePlayer(player)" class="remove-player-btn">Remove</button>
-        </li>
-      </ul>
-      <button (click)="resetGame()" class="reset-btn">Clear All Players</button>
+
+      <!-- Quiz List -->
+      <div *ngIf="showQuizList" class="quiz-list">
+        <h3>Select a Quiz</h3>
+        <div *ngIf="allQuizzes.length === 0" class="no-content">
+          No quizzes created yet. Create one to start a session!
+        </div>
+        <div class="quiz-cards">
+          <div *ngFor="let quiz of allQuizzes"
+               (click)="createGameSessionFromQuiz(quiz)"
+               class="quiz-card">
+            <strong>{{ quiz.quiz_name }}</strong>
+            <span class="quiz-date">{{ quiz.quiz_date | date:'mediumDate' }}</span>
+            <button (click)="deleteQuiz(quiz.id, $event)" class="delete-btn-small">×</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Archived Quiz List -->
+      <div *ngIf="showArchivedQuizzes" class="quiz-list">
+        <h3>Archived Quizzes</h3>
+        <div *ngIf="archivedQuizzes.length === 0" class="no-content">
+          No archived quizzes.
+        </div>
+        <div class="quiz-cards">
+          <div *ngFor="let quiz of archivedQuizzes" class="quiz-card archived">
+            <strong>{{ quiz.quiz_name }}</strong>
+            <span class="quiz-date">{{ quiz.quiz_date | date:'mediumDate' }}</span>
+            <button (click)="restoreQuiz(quiz.id, $event)" class="restore-btn" title="Restore quiz">↺</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- New Quiz Form -->
+      <div *ngIf="showNewQuizForm" class="quiz-form">
+        <h3>Create New Quiz</h3>
+        <label>Quiz Name</label>
+        <input
+          type="text"
+          [(ngModel)]="newQuizName"
+          placeholder="e.g., Pub Quiz - October 21st"
+        />
+
+        <label>Quiz Date</label>
+        <input
+          type="date"
+          [(ngModel)]="newQuizDate"
+        />
+
+        <button (click)="createQuiz()" class="save-btn">Create Quiz</button>
+      </div>
     </div>
 
+    <!-- My Active Sessions Section -->
+    <div class="my-sessions-section">
+      <h2>My Active Sessions</h2>
+      <div *ngIf="mySessions.length === 0" class="no-content">
+        <p>You don't have any active sessions.</p>
+        <p>Select a quiz above to create your first session!</p>
+      </div>
+      <div class="session-cards">
+        <div *ngFor="let session of mySessions" class="session-card">
+          <div class="session-header">
+            <span class="session-code-large">{{ session.session_code }}</span>
+            <span class="badge" [class.badge-success]="session.status === 'active'"
+                                [class.badge-warning]="session.status === 'waiting'"
+                                [class.badge-info]="session.status === 'closed'">
+              {{ session.status }}
+            </span>
+          </div>
+          <div class="session-body">
+            <h3>{{ session.quiz_name }}</h3>
+            <p class="session-meta">{{ session.player_count }} players • Created {{ session.created_at | date:'short' }}</p>
+          </div>
+          <div class="session-actions">
+            <button (click)="enterSession(session)" class="primary-btn">
+              Enter Session
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== SESSION CONTROL PANEL VIEW ========== -->
+  <div *ngIf="viewMode === 'session-control' && selectedSession" class="session-control-view">
+    <!-- Session Header with Back Button -->
+    <div class="session-control-header">
+      <button (click)="exitSession()" class="back-btn">← Back to Sessions</button>
+      <div class="session-title">
+        <h1>{{ selectedSession.quiz_name }}</h1>
+        <div class="session-code-display">
+          <span>Session:</span>
+          <strong class="session-code-large">{{ currentSessionCode }}</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Session Status Info -->
+    <div *ngIf="currentQuiz" class="game-status-panel">
+      <p class="session-info">Session is active. Players can join via the lobby URL anytime.</p>
+    </div>
+
+    <!-- Players Section -->
+    <div class="players-panel">
+      <h3>Players ({{ players.length }})</h3>
+      <div *ngIf="players.length === 0" class="no-content">
+        No players joined yet. Share the lobby URL!
+      </div>
+      <table *ngIf="players.length > 0" class="data-table">
+        <tbody>
+          <tr *ngFor="let player of players; let i = index" [class.odd]="i % 2 === 1">
+            <td class="player-name">{{ player }}</td>
+            <td class="action-cell">
+              <button (click)="removePlayer(player)" class="delete-btn-small" title="Remove player">×</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <button (click)="resetGame()" class="reset-btn" *ngIf="players.length > 0">Clear All Players</button>
+    </div>
+
+    <!-- Round Manager -->
     <app-round-manager
+      *ngIf="currentQuiz"
       [currentQuizId]="currentQuiz.id"
-      [currentDisplayedRoundId]="currentQuiz.current_round_id"
+      [currentDisplayedRoundId]="currentRoundId"
+      [sessionCode]="currentSessionCode"
       (roundSelected)="onRoundSelected($event)"
       (displayStateChanged)="handleDisplayStateChanged()">
     </app-round-manager>
 
+    <!-- Question Manager -->
     <app-question-manager
       *ngIf="selectedRound"
       [currentRound]="selectedRound">
     </app-question-manager>
 
-    <!-- End Game and Marking Controls Section (Bottom of page) -->
-    <div *ngIf="currentQuiz.status === 'closed'" class="bottom-controls">
-      <h3>Game Controls</h3>
-      <div class="bottom-buttons">
-        <button (click)="toggleGameAndMarking()"
-                [ngClass]="markingMode ? 'resume-game-btn' : 'end-game-final-btn'">
-          <span *ngIf="!markingMode">End Game & Start Marking</span>
-          <span *ngIf="markingMode">Resume Game</span>
+    <!-- Marking Section -->
+    <div class="marking-panel">
+      <h3>Marking</h3>
+      <button (click)="enableMarkingMode()"
+              [ngClass]="{'success-btn': !markingMode, 'warning-btn': markingMode}">
+        {{ markingMode ? 'Exit Marking Mode' : 'Enter Marking Mode' }}
+      </button>
+
+      <div *ngIf="markingMode" class="marking-controls">
+        <p class="info-message">Marking mode is active. Players are marking each other's answers.</p>
+        <button (click)="viewMarkingResults()" class="secondary-btn">
+          View Marking Results
         </button>
-        <button (click)="viewMarkingResults()" class="view-results-btn">
-          {{ showResults ? 'Refresh Results' : 'View Marking Results' }}
+        <button (click)="clearMarkingData()" class="danger-btn">
+          Clear Marking Data
         </button>
       </div>
-      <p class="marking-help" *ngIf="!markingMode">
-        When you're done with all rounds, click "End Game & Start Marking" to send all rounds to players for peer marking.
-      </p>
-      <p class="marking-help" *ngIf="markingMode">
-        Players are currently marking answers. Click "View Marking Results" to see scores.
-      </p>
 
-      <!-- Results Display -->
-      <div *ngIf="showResults" class="results-display">
-        <h4>Peer Marking Results</h4>
-        <div *ngIf="markingResults.length === 0" class="no-results">
-          <p>No marking results yet. Players haven't submitted marks.</p>
+      <!-- Marking Results -->
+      <div *ngIf="showResults" class="results-panel">
+        <h4>Marking Results</h4>
+        <div *ngIf="markingResults.length === 0" class="no-content">
+          No marking results yet.
         </div>
-        <table *ngIf="markingResults.length > 0" class="results-table">
+        <table *ngIf="markingResults.length > 0">
           <thead>
             <tr>
-              <th>Rank</th>
               <th>Player</th>
-              <th>Marked By</th>
               <th>Score</th>
-              <th>Percentage</th>
+              <th>Possible</th>
+              <th>Marked By</th>
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let result of markingResults; let i = index">
-              <td class="rank">{{ i + 1 }}</td>
-              <td class="player-name">{{ result.player }}</td>
-              <td class="marked-by">{{ result.markedBy }}</td>
-              <td class="score">{{ result.score }} / {{ result.possible }}</td>
-              <td class="percentage">{{ (result.score / result.possible * 100).toFixed(1) }}%</td>
+            <tr *ngFor="let result of markingResults">
+              <td>{{ result.player }}</td>
+              <td>{{ result.score }}</td>
+              <td>{{ result.possible }}</td>
+              <td>{{ result.markedBy }}</td>
             </tr>
           </tbody>
         </table>
       </div>
     </div>
-  </div>
 
-  <div *ngIf="!currentQuiz && !showNewQuizForm && !showQuizList" class="no-selection">
-    <p>Select an existing quiz or create a new one to get started.</p>
+    <!-- End Session Button -->
+    <div class="danger-zone">
+      <button (click)="currentSessionCode && endSession(currentSessionCode)" class="danger-btn-large">
+        End This Session
+      </button>
+    </div>
   </div>
 </div>

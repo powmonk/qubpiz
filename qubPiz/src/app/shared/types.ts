@@ -5,13 +5,35 @@
 
 // ============= Quiz & Game Session =============
 
+/**
+ * Quiz interface - represents a quiz template (not an active session)
+ * Quizzes are reusable templates that can be instantiated as game sessions
+ */
 export interface Quiz {
   id: number;
   quiz_name: string;
   quiz_date: string;
-  status: string;
   created_at: string;
+}
+
+/**
+ * GameSession interface - represents an active game session
+ * Created from a quiz template, has its own state and players
+ */
+export interface GameSession {
+  id: number;
+  session_code: string;
+  quiz_id: number;
+  owner_id: string;
+  status: string;
   current_round_id: number | null;
+  marking_mode: boolean;
+  created_at: string;
+  last_activity: string;
+  // Additional fields from joined queries
+  quiz_name?: string;
+  quiz_date?: string;
+  player_count?: number;
 }
 
 export interface GameStatus {
@@ -27,7 +49,7 @@ export interface GameStatus {
 
 export interface Round {
   id: number;
-  game_session_id: number;
+  quiz_id: number;
   name: string;
   round_type: string;
   round_order: number;

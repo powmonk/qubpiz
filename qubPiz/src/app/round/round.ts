@@ -93,8 +93,23 @@ export class RoundComponent implements OnInit, OnDestroy {
     // Poll every 2 seconds for responsive gameplay
     this.pollSubscription = interval(2000).pipe(
       startWith(0),
-      switchMap(() => this.api.get<RoundDisplayData>(`/api/game/display-data`))
+      switchMap(() => {
+        // Get session from game status service
+        const session = this.gameStatusService.getCurrentSession();
+        const url = session
+          ? `/api/game/display-data?session=${session}`
+          : `/api/game/display-data`;
+        return this.api.get<RoundDisplayData>(url);
+      })
     ).subscribe(data => {
+
+      // MARKING MODE: Check if marking mode is enabled via game status service
+      this.gameStatusService.gameStatus$.subscribe(statusData => {
+        if (statusData && statusData.marking_mode) {
+          // Redirect to marking page
+          this.router.navigate(['/marking'], { replaceUrl: true });
+        }
+      });
 
       // Check if round type matches expected type
       // Note: 'text' and 'question' are treated as the same type
@@ -146,9 +161,12 @@ export class RoundComponent implements OnInit, OnDestroy {
   loadPlayerAnswers() {
     if (!this.currentRound || !this.playerName) return;
 
-    this.api.get<{ answers: { [key: string]: string } }>(
-      `/api/answers/${this.playerName}/${this.currentRound.id}`
-    ).subscribe({
+    const sessionCode = this.gameStatusService.getCurrentSession();
+    const url = sessionCode
+      ? `/api/answers/${this.playerName}/${this.currentRound.id}?session=${sessionCode}`
+      : `/api/answers/${this.playerName}/${this.currentRound.id}`;
+
+    this.api.get<{ answers: { [key: string]: string } }>(url).subscribe({
       next: (data) => {
         this.playerAnswers = {};
         Object.keys(data.answers).forEach(key => {
@@ -173,7 +191,12 @@ export class RoundComponent implements OnInit, OnDestroy {
     if (!answerText.trim()) return;
     if (!this.currentRound) return;
 
-    this.api.post(`/api/answers/submit`, {
+    const sessionCode = this.gameStatusService.getCurrentSession();
+    const url = sessionCode
+      ? `/api/answers/submit?session=${sessionCode}`
+      : '/api/answers/submit';
+
+    this.api.post(url, {
       player_name: this.playerName,
       question_id: questionId,
       round_id: this.currentRound.id,
@@ -211,7 +234,9 @@ export class RoundComponent implements OnInit, OnDestroy {
 
   getImageUrl(path: string | null): string {
     if (path) {
-      return `${this.api.apiBaseUrl}${path}`;
+      const fullUrl = `${this.api.apiBaseUrl}${path}`;
+      console.log('Image URL:', fullUrl); // Debug logging
+      return fullUrl;
     }
     return '';
   }
