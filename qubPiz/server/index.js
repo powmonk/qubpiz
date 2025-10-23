@@ -1764,8 +1764,8 @@ app.post('/api/sessions/:code/end', async (req, res) => {
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../dist/qub-piz/browser')));
 
-  // All other routes should redirect to the Angular app
-  app.get('*', (req, res) => {
+  // All non-API routes should redirect to the Angular app
+  app.get(/^(?!\/api).*/, (req, res) => {
     res.sendFile(path.join(__dirname, '../dist/qub-piz/browser/index.html'));
   });
 }
