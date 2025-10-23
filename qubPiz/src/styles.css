@@ -448,3 +448,238 @@ img {
 .gap-sm { gap: var(--spacing-sm); }
 .gap-md { gap: var(--spacing-md); }
 .gap-lg { gap: var(--spacing-lg); }
+
+/* ============================================
+   LAYOUT CONTAINERS
+   ============================================ */
+
+/* Two-column lobby layout */
+.lobby-container {
+  display: flex;
+  min-height: 100vh;
+  gap: 40px;
+  padding: 40px;
+}
+
+.left-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-width: 400px;
+}
+
+.right-section {
+  flex: 1;
+  border-left: 2px solid var(--border-color);
+  padding-left: 40px;
+}
+
+/* Waiting/centered screen layout */
+.waiting-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  text-align: center;
+}
+
+/* Player status panels */
+.player-status,
+.player-logged-in-status {
+  margin-top: 30px;
+  padding: 20px;
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-primary);
+}
+
+/* ============================================
+   TABLES
+   ============================================ */
+
+.results-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.results-table thead {
+  background: var(--color-primary);
+  color: white;
+}
+
+.results-table th {
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+}
+
+.results-table tbody tr {
+  border-bottom: 1px solid var(--border-color);
+  transition: background-color 0.2s;
+}
+
+.results-table tbody tr:hover {
+  background-color: var(--bg-hover);
+}
+
+.results-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.results-table td {
+  padding: 12px;
+}
+
+.results-table .rank {
+  font-weight: bold;
+  color: var(--color-primary);
+  width: 60px;
+  text-align: center;
+}
+
+.results-table .player-name {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.results-table .marked-by {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.results-table .score {
+  font-family: monospace;
+  color: var(--text-secondary);
+}
+
+.results-table .percentage {
+  font-weight: bold;
+  color: var(--color-success);
+}
+
+/* ============================================
+   GRIDS
+   ============================================ */
+
+.questions-grid,
+.image-grid {
+  display: grid;
+  gap: 25px;
+  margin-top: 20px;
+}
+
+.image-grid {
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+/* ============================================
+   SPECIAL BUTTONS
+   ============================================ */
+
+.logout-btn,
+.remove-player-btn {
+  background-color: var(--color-warning);
+  color: #1a1a1a;
+}
+
+.logout-btn:hover,
+.remove-player-btn:hover {
+  background-color: #e0a800;
+}
+
+.reset-btn {
+  background-color: var(--color-danger);
+  color: white;
+}
+
+.reset-btn:hover {
+  background-color: var(--color-danger-hover);
+}
+
+/* ============================================
+   MANAGER SECTIONS
+   ============================================ */
+
+.round-manager,
+.question-manager,
+.player-management,
+.marking-controls,
+.bottom-controls {
+  margin-top: 30px;
+  padding: 25px;
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  border: 2px solid var(--border-color);
+}
+
+.round-manager {
+  border-color: var(--color-success);
+}
+
+.round-manager h3 {
+  color: var(--color-success);
+}
+
+.question-manager {
+  border-color: var(--color-primary);
+}
+
+.question-manager h3 {
+  color: var(--color-primary);
+}
+
+.marking-controls,
+.bottom-controls {
+  border-left: 5px solid #9c27b0;
+  border-top: 3px solid #9c27b0;
+}
+
+.marking-controls h3,
+.bottom-controls h3 {
+  margin-top: 0;
+  color: #9c27b0;
+}
+
+/* ============================================
+   FORMS & SECTIONS
+   ============================================ */
+
+.quiz-form,
+.round-form,
+.question-form {
+  background-color: var(--bg-tertiary);
+  padding: 20px;
+  border-radius: var(--radius-md);
+  margin-bottom: 20px;
+}
+
+/* ============================================
+   STATUS & BADGES
+   ============================================ */
+
+.round-type-badge {
+  display: inline-block;
+  padding: 5px 15px;
+  background-color: rgba(0, 123, 255, 0.2);
+  color: var(--color-primary-light);
+  border-radius: 20px;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.round-type {
+  display: inline-block;
+  padding: 4px 12px;
+  background-color: var(--color-primary);
+  color: white;
+  border-radius: 12px;
+  font-size: 12px;
+  text-transform: capitalize;
+}

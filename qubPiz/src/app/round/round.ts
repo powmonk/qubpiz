@@ -85,16 +85,35 @@ export class RoundComponent implements OnInit, OnDestroy {
     });
   }
 
+  backToLobby() {
+    this.router.navigate(['/'], { replaceUrl: true });
+  }
+
   startPolling() {
-    // Poll every 5 seconds (optimized for low-spec servers)
-    this.pollSubscription = interval(5000).pipe(
+    // Poll every 2 seconds for responsive gameplay
+    this.pollSubscription = interval(2000).pipe(
       startWith(0),
       switchMap(() => this.api.get<RoundDisplayData>(`/api/game/display-data`))
     ).subscribe(data => {
 
       // Check if round type matches expected type
-      if (!data.round || data.round.round_type !== this.roundType) {
-        this.router.navigate(['/'], { replaceUrl: true });
+      // Note: 'text' and 'question' are treated as the same type
+      const isQuestionRound = data.round?.round_type === 'question' || data.round?.round_type === 'text';
+      const isPictureRound = data.round?.round_type === 'picture' || data.round?.round_type === 'image';
+      const expectedQuestion = this.roundType === 'question';
+      const expectedPicture = this.roundType === 'picture';
+
+      // If no round data, just wait - don't redirect
+      // This prevents lobby flashing when MC switches rounds
+      if (!data.round) {
+        return;
+      }
+
+      // If wrong round type, redirect DIRECTLY to correct round page
+      // This prevents lobby flashing when switching between round types
+      if ((expectedQuestion && !isQuestionRound) || (expectedPicture && !isPictureRound)) {
+        const correctPath = isPictureRound ? '/round/picture' : '/round/question';
+        this.router.navigate([correctPath], { replaceUrl: true });
         return;
       }
 

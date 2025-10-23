@@ -163,6 +163,21 @@ export class Mc implements OnInit, OnDestroy {
         next: (data) => {
           this.currentQuiz = data.quiz;
           this.loadPlayers();
+
+          // If starting a new game (status = active from waiting), clear old marking data
+          if (data.quiz.status === 'active') {
+            this.clearMarkingData();
+          }
+
+          // If opening lobby (status = active), disable marking mode
+          if (data.quiz.status === 'active' && this.markingMode) {
+            this.api.post('/api/marking/toggle-mode', {})
+              .subscribe({
+                next: (modeData: any) => {
+                  this.markingMode = modeData.marking_mode;
+                }
+              });
+          }
         },
         error: (err) => {
           console.error('Error toggling game status', err);
@@ -248,6 +263,22 @@ export class Mc implements OnInit, OnDestroy {
         },
         error: (err) => {
           console.error('Error loading marking results', err);
+        }
+      });
+  }
+
+  // Clear all marking data for the current quiz
+  clearMarkingData() {
+    this.api.post('/api/marking/clear', {})
+      .subscribe({
+        next: (data: any) => {
+          this.markingResults = [];
+          this.showResults = false;
+          this.markingMode = false;
+          console.log('Marking data cleared');
+        },
+        error: (err) => {
+          console.error('Error clearing marking data', err);
         }
       });
   }

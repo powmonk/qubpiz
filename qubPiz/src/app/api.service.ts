@@ -6,14 +6,30 @@ import { Observable } from 'rxjs';
   providedIn: 'root'
 })
 export class ApiService {
-  // Single source of truth for API base URL
-  // In production, uses same host as the app (served by Nginx)
-  // In development, uses localhost:3000
-  private readonly baseUrl = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-    ? '' // Use relative URLs in production (same origin)
-    : 'http://localhost:3000';
+  private readonly baseUrl: string;
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) {
+    // Determine base URL based on environment
+    if (typeof window === 'undefined') {
+      this.baseUrl = 'http://localhost:3000';
+    } else {
+      const hostname = window.location.hostname;
+
+      // GitHub Codespaces - use port-forwarded URL
+      if (hostname.includes('github.dev')) {
+        const baseHost = hostname.replace('-4200.app.github.dev', '');
+        this.baseUrl = `${window.location.protocol}//${baseHost}-3000.app.github.dev`;
+      }
+      // Local development
+      else if (hostname === 'localhost') {
+        this.baseUrl = 'http://localhost:3000';
+      }
+      // Production - use relative URLs (same origin via Nginx proxy)
+      else {
+        this.baseUrl = '';
+      }
+    }
+  }
 
   // Helper method to construct full URLs
   getUrl(path: string): string {

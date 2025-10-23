@@ -1,3 +1,5 @@
+/* marking.css - Component-specific layout and dark theme */
+
 .marking-container {
   max-width: 900px;
   margin: 0 auto;
@@ -6,7 +8,7 @@
 
 h1 {
   text-align: center;
-  color: #333;
+  color: var(--text-primary);
   margin-bottom: 30px;
 }
 
@@ -14,10 +16,11 @@ h1 {
   text-align: center;
   padding: 40px;
   font-size: 1.1em;
+  color: var(--text-secondary);
 }
 
 .error {
-  color: #d32f2f;
+  color: var(--color-danger);
 }
 
 .assignments {
@@ -27,22 +30,22 @@ h1 {
 }
 
 .assignment-card {
-  border: 2px solid #e0e0e0;
-  border-radius: 12px;
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-lg);
   padding: 20px;
-  background: white;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  background: var(--bg-secondary);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
 
 .assignment-header {
-  border-bottom: 2px solid #f0f0f0;
+  border-bottom: 2px solid var(--border-color);
   padding-bottom: 15px;
   margin-bottom: 20px;
 }
 
 .assignment-header h2 {
   margin: 0 0 10px 0;
-  color: #1976d2;
+  color: var(--color-primary);
 }
 
 .score-summary {
@@ -53,16 +56,16 @@ h1 {
 }
 
 .markee {
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .progress {
   font-weight: bold;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .complete-badge {
-  color: #4caf50;
+  color: var(--color-success);
   margin-left: 8px;
 }
 
@@ -73,10 +76,10 @@ h1 {
 }
 
 .question-item {
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
   padding: 15px;
-  background: #fafafa;
+  background: var(--bg-tertiary);
 }
 
 .question-header {
@@ -86,10 +89,10 @@ h1 {
 }
 
 .question-number {
-  background: #1976d2;
+  background: var(--color-primary);
   color: white;
   padding: 4px 10px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-weight: bold;
   flex-shrink: 0;
 }
@@ -97,7 +100,7 @@ h1 {
 .question-text {
   margin: 0;
   font-weight: 500;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .question-image {
@@ -107,29 +110,29 @@ h1 {
 .question-image img {
   max-width: 100%;
   height: auto;
-  border-radius: 8px;
-  border: 1px solid #ddd;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
 }
 
 .correct-answer {
-  background: #e8f5e9;
+  background: rgba(40, 167, 69, 0.2);
   padding: 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   margin: 10px 0;
-  color: #2e7d32;
+  color: var(--color-success-light);
 }
 
 .player-answer {
-  background: #fff3e0;
+  background: rgba(255, 152, 0, 0.2);
   padding: 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   margin: 10px 0;
-  color: #e65100;
+  color: var(--color-warning);
 }
 
 .player-answer p {
   margin: 5px 0 0 0;
-  color: #333;
+  color: var(--text-primary);
   font-style: italic;
 }
 
@@ -142,9 +145,10 @@ h1 {
 .score-btn {
   flex: 1;
   padding: 12px;
-  border: 2px solid #ddd;
-  border-radius: 6px;
-  background: white;
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
   cursor: pointer;
   font-size: 0.95em;
   font-weight: 500;
@@ -153,37 +157,37 @@ h1 {
 
 .score-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
 }
 
 .score-btn.wrong {
-  color: #d32f2f;
+  color: var(--color-danger);
 }
 
 .score-btn.wrong.selected {
-  background: #d32f2f;
+  background: var(--color-danger);
   color: white;
-  border-color: #d32f2f;
+  border-color: var(--color-danger);
 }
 
 .score-btn.half {
-  color: #f57c00;
+  color: var(--color-warning);
 }
 
 .score-btn.half.selected {
-  background: #f57c00;
-  color: white;
-  border-color: #f57c00;
+  background: var(--color-warning);
+  color: var(--bg-primary);
+  border-color: var(--color-warning);
 }
 
 .score-btn.correct {
-  color: #388e3c;
+  color: var(--color-success);
 }
 
 .score-btn.correct.selected {
-  background: #388e3c;
+  background: var(--color-success);
   color: white;
-  border-color: #388e3c;
+  border-color: var(--color-success);
 }
 
 .score-btn:active {

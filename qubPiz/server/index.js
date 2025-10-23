@@ -988,15 +988,51 @@ app.get('/api/marking/results', async (req, res) => {
   }
 });
 
+// Clear all marking data for current quiz
+app.post('/api/marking/clear', async (req, res) => {
+  try {
+    if (!currentQuizId) {
+      return res.status(400).json({ error: 'No active quiz selected' });
+    }
+
+    // Delete peer marks through cascade
+    await pool.query(
+      'DELETE FROM marking_assignments WHERE game_session_id = $1',
+      [currentQuizId]
+    );
+
+    // Delete triggered rounds records
+    await pool.query(
+      'DELETE FROM triggered_rounds WHERE game_session_id = $1',
+      [currentQuizId]
+    );
+
+    // Turn off marking mode
+    await pool.query(
+      'UPDATE game_session SET marking_mode = FALSE WHERE id = $1',
+      [currentQuizId]
+    );
+
+    res.json({
+      success: true,
+      message: 'All marking data cleared for current quiz'
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ============= SERVE ANGULAR APP IN PRODUCTION =============
 
 // Serve static files from the Angular app (in production)
-app.use(express.static(path.join(__dirname, '../dist/qubPiz/browser')));
+// Commented out in development - Angular dev server handles this
+// app.use(express.static(path.join(__dirname, '../dist/qubPiz/browser')));
 
 // All other routes should redirect to the Angular app
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../dist/qubPiz/browser/index.html'));
-});
+// Commented out in development - Express 5 doesn't support '*' route
+// app.get('*', (req, res) => {
+//   res.sendFile(path.join(__dirname, '../dist/qubPiz/browser/index.html'));
+// });
 
 // ============= START SERVER =============
 

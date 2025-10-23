@@ -1,9 +1,9 @@
 /* Unified Round Display Styles (Picture & Question Rounds) */
 .display-container {
     padding: 40px;
-    background-color: #1a1a1a;
+    background-color: var(--bg-primary);
     min-height: 100vh;
-    color: white;
+    color: var(--text-primary);
 }
 
 .display-container header {
@@ -13,31 +13,31 @@
 
 .display-container h1 {
     font-size: 3em;
-    color: #4CAF50;
+    color: var(--color-success);
     margin-bottom: 10px;
 }
 
 .round-type-info {
     font-size: 1.4em;
-    color: #999;
+    color: var(--text-secondary);
     margin-bottom: 15px;
 }
 
 /* Main question text styling (picture rounds only) */
 .main-question {
     font-size: 1.8em;
-    color: #FFC107;
+    color: var(--color-warning);
     font-weight: bold;
     margin: 20px 0;
     padding: 15px;
     background-color: rgba(255, 193, 7, 0.1);
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     display: inline-block;
 }
 
 .player-name-display {
     font-size: 1.2em;
-    color: #FFC107;
+    color: var(--color-warning);
     margin-top: 15px;
 }
 
@@ -82,8 +82,9 @@
 
 /* Question Card Base */
 .question-card {
-    background-color: #2c2c2c;
-    border-radius: 12px;
+    position: relative; /* Needed for absolute positioned children like question numbers */
+    background-color: var(--bg-secondary);
+    border-radius: var(--radius-lg);
     padding: 20px;
     box-shadow: 0 6px 12px rgba(0, 0, 0, 0.5);
     display: flex;
@@ -111,9 +112,9 @@
     left: 15px;
     width: 40px;
     height: 40px;
-    background-color: #FFC107;
-    color: #1a1a1a;
-    border-radius: 50%;
+    background-color: var(--color-warning);
+    color: var(--bg-primary);
+    border-radius: var(--radius-circle);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -133,14 +134,14 @@
 .question-display .question-number {
     font-size: 1.6em;
     font-weight: bold;
-    color: #FFC107;
+    color: var(--color-warning);
     flex-shrink: 0;
 }
 
 .question-display .question-text {
     font-size: 1.3em;
     line-height: 1.5;
-    color: #ffffff;
+    color: var(--text-primary);
 }
 
 /* Image Wrapper - Picture Round (3:4 aspect ratio) */
@@ -148,8 +149,8 @@
     width: 100%;
     aspect-ratio: 3 / 4;
     overflow: hidden;
-    border-radius: 8px;
-    background-color: #1a1a1a;
+    border-radius: var(--radius-md);
+    background-color: var(--bg-primary);
     margin-bottom: 15px;
     position: relative;
 }
@@ -167,8 +168,8 @@
     max-width: 100%;
     max-height: 200px;
     overflow: hidden;
-    border-radius: 8px;
-    background-color: #1a1a1a;
+    border-radius: var(--radius-md);
+    background-color: var(--bg-primary);
 }
 
 .question-image-thumb img {
@@ -194,10 +195,10 @@
 .answer-input {
     width: 100%;
     padding: 12px 15px;
-    background-color: #1a1a1a;
-    border: 2px solid #444;
-    border-radius: 6px;
-    color: white;
+    background-color: var(--bg-primary);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
     font-size: 16px;
     transition: border-color 0.3s;
     box-sizing: border-box;
@@ -205,30 +206,21 @@
 
 .answer-input:focus {
     outline: none;
-    border-color: #4CAF50;
+    border-color: var(--color-success);
 }
 
 .answer-input::placeholder {
-    color: #666;
+    color: var(--text-muted);
 }
 
-/* Waiting Screen */
-.waiting-screen {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    text-align: center;
-}
-
+/* Waiting Screen - uses global styles from styles.css */
 .waiting-screen h1 {
-    color: #4CAF50;
+    color: var(--color-success);
     margin-bottom: 20px;
 }
 
 .waiting-screen p {
-    color: #999;
+    color: var(--text-secondary);
     font-size: 18px;
 }
 

@@ -142,10 +142,12 @@ export class GameStatusService {
         this.router.navigateByUrl(routePath, { replaceUrl: true });
       }
     }
-    else if (!data.current_round_id) {
-      if (currentPath.startsWith('/round/')) {
-        this.router.navigate(['/'], { replaceUrl: true });
-      }
-    }
+    // Don't redirect away from round pages between rounds
+    // This prevents lobby flashing when MC switches rounds
+    // else if (!data.current_round_id) {
+    //   if (currentPath.startsWith('/round/')) {
+    //     this.router.navigate(['/'], { replaceUrl: true });
+    //   }
+    // }
   }
 }
