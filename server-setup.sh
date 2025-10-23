@@ -20,7 +20,7 @@ print_info() { echo -e "${YELLOW}→ $1${NC}"; }
 print_error() { echo -e "${RED}✗ $1${NC}"; }
 
 # Configuration - UPDATE THESE
-GITHUB_REPO="https://github.com/YOUR_USERNAME/qubpiz.git"
+GITHUB_REPO="https://github.com/powmonk/qubpiz.git"
 APP_DIR="/var/www/qubpiz"
 BRANCH="main"
 
