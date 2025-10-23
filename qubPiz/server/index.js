@@ -1761,14 +1761,14 @@ app.post('/api/sessions/:code/end', async (req, res) => {
 // ============= SERVE ANGULAR APP IN PRODUCTION =============
 
 // Serve static files from the Angular app (in production)
-// Commented out in development - Angular dev server handles this
-// app.use(express.static(path.join(__dirname, '../dist/qubPiz/browser')));
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../dist/qub-piz/browser')));
 
-// All other routes should redirect to the Angular app
-// Commented out in development - Express 5 doesn't support '*' route
-// app.get('*', (req, res) => {
-//   res.sendFile(path.join(__dirname, '../dist/qubPiz/browser/index.html'));
-// });
+  // All other routes should redirect to the Angular app
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../dist/qub-piz/browser/index.html'));
+  });
+}
 
 // ============= START SERVER =============
 
