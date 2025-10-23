@@ -156,7 +156,7 @@ print_info "Configuring Nginx..."
 sudo tee /etc/nginx/sites-available/qubpiz > /dev/null <<'EOF'
 server {
     listen 80;
-    server_name _;
+    server_name qubpiz.com www.qubpiz.com _;
 
     # Enable gzip compression
     gzip on;
@@ -166,9 +166,15 @@ server {
     gzip_types text/plain text/css text/xml text/javascript application/json application/javascript application/xml+rss application/rss+xml;
     gzip_min_length 1000;
 
+    # Let's Encrypt verification
+    location /.well-known/acme-challenge/ {
+        root /var/www/qubpiz/qubPiz/dist/qubPiz/browser;
+        try_files $uri =404;
+    }
+
     # Serve Angular app
     location / {
-        root /var/www/qubpiz/qubPiz/dist/qub-piz/browser;
+        root /var/www/qubpiz/qubPiz/dist/qubPiz/browser;
         try_files $uri $uri/ /index.html;
     }
 
