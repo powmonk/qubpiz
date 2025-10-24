@@ -1,1 +1,11 @@
 server/.env
+
+# SSL certificates (sensitive)
+*.pem
+qubPiz/ssl/
+
+# Build artifacts
+*.tar.gz
+
+# Test files
+new

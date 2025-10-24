@@ -54,6 +54,11 @@
         },
         "serve": {
           "builder": "@angular/build:dev-server",
+          "options": {
+            "ssl": true,
+            "sslCert": "ssl/cert.pem",
+            "sslKey": "ssl/key.pem"
+          },
           "configurations": {
             "production": {
               "buildTarget": "qubPiz:build:production"
