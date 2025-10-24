@@ -38,7 +38,7 @@
           </div>
 
           <div *ngIf="question.image_url" class="question-image">
-            <img [src]="'http://localhost:3000' + question.image_url" [alt]="question.question_text">
+            <img [src]="getImageUrl(question.image_url)" [alt]="question.question_text">
           </div>
 
           <div class="correct-answer">

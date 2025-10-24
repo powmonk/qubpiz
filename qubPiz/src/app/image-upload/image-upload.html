@@ -2,7 +2,7 @@
   <!-- Show current image if editing -->
   <div *ngIf="currentImageUrl && !previewUrl" class="current-image">
     <h4>Current Image</h4>
-    <img [src]="'http://localhost:3000' + currentImageUrl" alt="Current question image" />
+    <img [src]="getImageUrl(currentImageUrl)" alt="Current question image" />
   </div>
 
   <!-- File input -->

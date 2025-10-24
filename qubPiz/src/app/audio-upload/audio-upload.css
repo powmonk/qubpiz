@@ -1,0 +1,40 @@
+/* Audio Upload - Component-specific layout only */
+
+.audio-upload-container {
+  padding: 20px;
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  margin-bottom: 20px;
+}
+
+.current-audio h4,
+.preview-container h4 {
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.current-audio audio {
+  width: 100%;
+  max-width: 400px;
+  margin-top: 10px;
+}
+
+.file-input-wrapper {
+  margin-bottom: 15px;
+}
+
+.preview-container {
+  margin-top: 20px;
+}
+
+.file-info {
+  color: var(--text-secondary);
+  margin-bottom: 15px;
+  font-size: 14px;
+}
+
+.preview-actions {
+  display: flex;
+  gap: 10px;
+}

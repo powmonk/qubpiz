@@ -97,10 +97,13 @@ setDisplayRound(round: Round | null) {
     this.selectRound(round);
   }
 
-  // NEW: Include session parameter if managing a session
-  const url = this.sessionCode
-    ? `/api/game/set-round/${roundId}?session=${this.sessionCode}`
-    : `/api/game/set-round/${roundId}`;
+  // Session is now REQUIRED
+  if (!this.sessionCode) {
+    console.error('Cannot set round display: No session code');
+    return;
+  }
+
+  const url = `/api/game/set-round/${roundId}?session=${this.sessionCode}`;
 
   this.api.post(url, {})
     .subscribe({

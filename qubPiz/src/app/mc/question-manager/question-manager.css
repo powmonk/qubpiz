@@ -175,3 +175,30 @@
   top: 10px;
   right: 10px;
 }
+
+/* Multiple choice specific styles */
+.correct-answer-input {
+  border-left: 4px solid var(--color-success) !important;
+}
+
+.mc-options {
+  margin-top: 10px;
+  padding-left: 15px;
+}
+
+.mc-option {
+  padding: 8px 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.mc-option .correct-option {
+  color: var(--color-success);
+  font-weight: 600;
+}
+
+/* Audio player for MC music round display */
+.audio-player-mc {
+  width: 100%;
+  margin: 10px 0;
+}

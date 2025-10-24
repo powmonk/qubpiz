@@ -1,0 +1,40 @@
+<div class="audio-upload-container">
+  <!-- Show current audio if editing -->
+  <div *ngIf="currentAudioUrl && !selectedFile" class="current-audio">
+    <h4>Current Audio</h4>
+    <audio [src]="getAudioUrl(currentAudioUrl)" controls></audio>
+  </div>
+
+  <!-- File input -->
+  <div class="file-input-wrapper">
+    <label class="file-label">
+      <input
+        type="file"
+        accept="audio/*"
+        (change)="onFileSelected($event)"
+        [disabled]="uploading"
+      />
+      <span class="file-button">Choose Audio File</span>
+    </label>
+    <span *ngIf="selectedFile" class="file-name">{{ selectedFile.name }}</span>
+  </div>
+
+  <!-- Upload actions -->
+  <div *ngIf="selectedFile" class="preview-container">
+    <h4>Ready to Upload</h4>
+    <p class="file-info">{{ selectedFile.name }} ({{ (selectedFile.size / 1024 / 1024).toFixed(2) }} MB)</p>
+    <div class="preview-actions">
+      <button (click)="uploadAudio()" [disabled]="uploading" class="upload-btn">
+        {{ uploading ? 'Uploading...' : 'Upload Audio' }}
+      </button>
+      <button (click)="clearAudio()" [disabled]="uploading" class="clear-btn">
+        Clear
+      </button>
+    </div>
+  </div>
+
+  <!-- Error message -->
+  <div *ngIf="uploadError" class="error-message">
+    {{ uploadError }}
+  </div>
+</div>

@@ -78,8 +78,10 @@ export interface Question {
   answer?: string;  // Correct answer (MC view)
   correct_answer?: string;  // Alternative field name (marking view)
   image_url: string | null;
+  audio_url?: string | null;  // Audio file URL for music rounds
   question_order: number;
   created_at?: string;
+  options?: MultipleChoiceOption[];  // Multiple choice options (with order preserved)
 }
 
 /**
@@ -90,7 +92,18 @@ export interface PlayerQuestion {
   id: number;
   question_text: string;
   image_url: string | null;
+  audio_url?: string | null;  // Audio file URL for music rounds
   question_order: number;
+  options?: string[];  // Multiple choice options (shuffled for players)
+}
+
+/**
+ * Multiple Choice Option interface
+ * Used by MC to see options with correct answer order preserved
+ */
+export interface MultipleChoiceOption {
+  option_text: string;
+  option_order: number;  // 0 = correct answer, 1-3 = wrong answers
 }
 
 // ============= Marking =============

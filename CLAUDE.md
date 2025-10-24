@@ -122,8 +122,27 @@ All player answer endpoints have been updated to support sessions:
 - Unique constraint changed from `(player_name, question_id)` to `(session_id, player_name, question_id)`
 - Marking assignments created for all joined players, not just players with answers
 
-**Remaining Work**:
-- Migrate `/api/rounds` endpoints (GET, POST, DELETE) for full session support
+**Phase 7: Legacy Mode Removal** ✅ COMPLETED (2025-10-24)
+
+All legacy mode support has been completely removed:
+- ✅ Updated `resolveSessionContext` middleware to require session codes (returns 400 if missing)
+- ✅ Removed all dynamic SQL and mode checking from endpoints
+- ✅ Updated `/api/game/status` to only query game_sessions table
+- ✅ Updated `/api/game/toggle-status` to only work with game_sessions
+- ✅ Updated `/api/game/set-round/:roundId` to remove quiz_id validation (session-only)
+- ✅ Updated `/api/game/display-data` to only query game_sessions
+- ✅ Updated frontend components to handle missing sessions gracefully:
+  - `game-status-service.ts` - Returns empty status instead of API call
+  - `round.ts` - Returns empty display data instead of API call
+  - `round-manager.ts` - Requires session before operations
+  - `mc.ts` - Requires session for all game control actions
+
+**Key Fix**: Removed quiz_id validation from set-round endpoint (index.js:930-938) because `current_quiz_id` is never set in game_sessions. Now only validates that round exists, making the system fully session-based.
+
+**System Status**: ✅ FULLY FUNCTIONAL
+- Players can see rounds and questions when MC displays them
+- All operations require session codes
+- No legacy mode fallbacks remain
 
 ## Common Issues and Solutions
 

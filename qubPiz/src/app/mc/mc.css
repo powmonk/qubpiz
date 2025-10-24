@@ -1,380 +1,361 @@
-/* MC Component - Component-specific layout only */
+/* MC Component - Layout-specific styles only */
+/* Common styles are inherited from master CSS (src/styles.css) */
 
-div {
+/* ---------------------------------------------------------------- */
+/* Session Lobby View */
+/* ---------------------------------------------------------------- */
+
+.session-lobby-view {
     padding: 40px;
     max-width: 1200px;
     margin: 0 auto;
 }
 
-.quiz-actions {
+.subtitle {
+    text-align: center;
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-xl);
+    font-size: 18px;
+}
+
+.create-section {
+    margin-bottom: var(--spacing-xl);
+}
+
+.quiz-selector {
     display: flex;
-    gap: 15px;
-    margin-bottom: 30px;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+    flex-wrap: wrap;
 }
 
 .quiz-list {
     background-color: var(--bg-secondary);
-    padding: 20px;
+    padding: var(--spacing-lg);
     border-radius: var(--radius-md);
-    margin-bottom: 30px;
+    margin-bottom: var(--spacing-lg);
 }
 
-.quiz-item {
-    display: flex;
-    align-items: center;
-    gap: 15px;
+.quiz-form {
+    background-color: var(--bg-secondary);
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-md);
+    margin-top: var(--spacing-lg);
 }
 
-.quiz-item strong {
-    flex: 1;
-    color: var(--text-primary);
+.quiz-cards, .session-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-md);
+}
+
+.quiz-card, .session-card {
+    background-color: var(--bg-tertiary);
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.quiz-card:hover, .session-card:hover {
+    background-color: var(--bg-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.quiz-card.archived {
+    opacity: 0.6;
 }
 
 .quiz-date {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 13px;
+    margin-top: var(--spacing-xs);
+}
+
+.session-card {
+    cursor: default;
+}
+
+.session-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-sm);
+}
+
+.session-code-large {
+    font-family: 'Courier New', monospace;
+    font-size: 24px;
+    font-weight: bold;
+    color: var(--color-primary);
+    background-color: var(--bg-primary);
+    padding: 5px 12px;
+    border-radius: var(--radius-sm);
+    letter-spacing: 2px;
+}
+
+.badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.badge-success {
+    background-color: var(--color-success);
+    color: white;
+}
+
+.badge-warning {
+    background-color: var(--color-warning);
+    color: black;
+}
+
+.badge-info {
+    background-color: var(--color-info);
+    color: white;
+}
+
+.session-body h3 {
+    margin-bottom: var(--spacing-xs);
+}
+
+.session-meta {
     color: var(--text-secondary);
     font-size: 14px;
-}
-
-.current-quiz {
-    background-color: var(--bg-secondary);
-    padding: 30px;
-    border-radius: var(--radius-md);
-    border-left: 5px solid var(--color-success);
-}
-
-.current-quiz h2 {
-    text-align: center;
-}
-
-.quiz-date-display {
-    color: var(--text-secondary);
-    font-size: 16px;
-    margin-bottom: 30px;
-    text-align: center;
-}
-
-.no-selection {
-    text-align: center;
-    color: var(--text-muted);
-    padding: 40px;
-    font-size: 18px;
-}
-
-.no-quizzes {
-    color: var(--text-muted);
-    font-style: italic;
-    padding: 20px;
-    text-align: center;
-}
-
-/* ---------------------------------------------------------------- */
-/* Status Control Panel (Centered and Consolidated) */
-/* ---------------------------------------------------------------- */
-
-.game-status-panel {
-    text-align: center;
-    margin-bottom: 30px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid var(--border-color);
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.game-status-panel p {
-    margin: 10px 0 0;
-}
-
-.end-game-final-btn {
-    padding: 12px 25px;
-    border: none;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    font-size: 1.1em;
-    font-weight: bold;
-    background-color: #9c27b0;
-    color: white;
-    transition: background-color 0.3s;
-}
-
-.end-game-final-btn:hover {
-    background-color: #7b1fa2;
-}
-
-.marking-active-notice {
-    background-color: rgba(156, 39, 176, 0.2);
-    color: #ce93d8;
-    padding: 10px;
-    border-radius: var(--radius-sm);
-    font-weight: bold;
-}
-
-.resume-game-btn {
-    padding: 12px 25px;
-    border: none;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    font-size: 1.1em;
-    font-weight: bold;
-    background-color: var(--color-success);
-    color: white;
-    transition: background-color 0.3s;
-}
-
-.resume-game-btn:hover {
-    background-color: var(--color-success-hover);
-}
-
-/* Base styles for status buttons */
-.start-game-btn, .end-game-btn {
-    padding: 12px 25px;
-    border: none;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    margin: 10px auto 10px;
-    font-size: 1.1em;
-    font-weight: bold;
-    display: block;
-    width: fit-content;
-    transition: opacity 0.3s, background-color 0.3s;
-}
-
-.start-game-btn {
-    background-color: var(--color-success);
-    color: white;
-}
-
-.end-game-btn {
-    background-color: var(--color-danger);
-    color: white;
-}
-
-.start-game-btn:hover, .end-game-btn:hover {
-    opacity: 0.9;
-}
-
-/* ---------------------------------------------------------------- */
-/* Player Management Section Styles */
-/* ---------------------------------------------------------------- */
-
-.player-management {
-    margin-top: 30px;
-    margin-bottom: 30px;
-    padding: 20px;
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    background-color: var(--bg-secondary);
-}
-
-.player-management h3 {
-    text-align: center;
-    color: var(--text-primary);
-    margin-top: 0;
-    margin-bottom: 20px;
-    padding-bottom: 10px;
-    border-bottom: 2px solid var(--border-color);
-}
-
-.no-players {
-    color: var(--text-muted);
-    font-style: italic;
-    text-align: center;
-    padding: 15px 0;
-}
-
-.player-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-}
-
-.player-list li {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 15px;
-    margin-bottom: 8px;
-    border-radius: var(--radius-sm);
-    background-color: var(--bg-tertiary);
-    border: 1px solid var(--border-color);
-    font-size: 1.1em;
-}
-
-.player-list li:hover {
-    background-color: var(--bg-hover);
-}
-
-/* Marking Controls */
-.marking-buttons {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-bottom: 15px;
-}
-
-.trigger-marking-btn {
-    background-color: #9c27b0;
-    color: white;
-    padding: 12px;
-    border: none;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    font-weight: bold;
-    transition: background-color 0.3s;
-}
-
-.trigger-marking-btn:hover:not(:disabled) {
-    background-color: #7b1fa2;
-}
-
-.trigger-marking-btn:disabled {
-    background-color: var(--bg-hover);
-    cursor: not-allowed;
-}
-
-.marking-active-btn {
-    background-color: var(--color-success);
-    color: white;
-    padding: 12px;
-    border: none;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    font-weight: bold;
-    transition: background-color 0.3s;
-}
-
-.marking-active-btn:hover {
-    background-color: var(--color-success-hover);
-}
-
-.marking-inactive-btn {
-    background-color: #ff9800;
-    color: white;
-    padding: 12px;
-    border: none;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    font-weight: bold;
-    transition: background-color 0.3s;
-}
-
-.marking-inactive-btn:hover {
-    background-color: #f57c00;
-}
-
-.view-results-btn {
-    background-color: var(--color-primary);
-    color: white;
-    padding: 12px;
-    border: none;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    font-weight: bold;
-    transition: background-color 0.3s;
-}
-
-.view-results-btn:hover {
-    background-color: var(--color-primary-hover);
-}
-
-.marking-status {
-    margin: 10px 0;
-    font-size: 0.95em;
-    color: var(--text-secondary);
-}
-
-.marking-help {
-    font-size: 0.85em;
-    color: var(--text-secondary);
-    line-height: 1.6;
-    margin: 10px 0 0 0;
-}
-
-.bottom-buttons {
-    display: flex;
-    gap: 15px;
-    margin-bottom: 15px;
-}
-
-.bottom-buttons button {
-    flex: 1;
-}
-
-.results-display {
-    margin-top: 25px;
-    padding-top: 25px;
-    border-top: 2px solid var(--border-color);
-}
-
-.results-display h4 {
-    margin-top: 0;
-    margin-bottom: 15px;
-    color: var(--text-primary);
-    font-size: 1.2em;
-}
-
-.no-results {
-    text-align: center;
-    padding: 20px;
-    color: var(--text-muted);
-    font-style: italic;
-}
-
-/* ---------------------------------------------------------------- */
-/* Session Management Styles (NEW - Multi-Game Support) */
-/* ---------------------------------------------------------------- */
-
-.session-management {
-    display: flex;
-    gap: 15px;
-    margin: 20px 0;
-}
-
-.active-sessions-panel {
-    background-color: var(--bg-secondary);
-    padding: 20px;
-    border-radius: var(--radius-md);
-    margin-bottom: 30px;
-    border: 2px solid var(--color-primary);
-}
-
-.active-sessions-panel h3 {
-    margin-top: 0;
-    color: var(--color-primary);
-}
-
-.session-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 15px;
-    margin-bottom: 10px;
-    background-color: var(--bg-tertiary);
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border-color);
-}
-
-.session-info {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    flex: 1;
-}
-
-.session-code {
-    font-size: 1.3em;
-    color: var(--color-primary);
-    font-family: monospace;
-    background-color: var(--bg-primary);
-    padding: 5px 10px;
-    border-radius: var(--radius-sm);
-}
-
-.session-details {
-    color: var(--text-secondary);
+    margin: var(--spacing-xs) 0;
 }
 
 .session-actions {
+    margin-top: var(--spacing-md);
+}
+
+.restore-btn {
+    position: absolute;
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+    background-color: var(--color-primary);
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: var(--radius-circle);
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
     display: flex;
-    gap: 10px;
+    align-items: center;
+    justify-content: center;
+}
+
+.restore-btn:hover {
+    background-color: var(--color-primary-hover);
+}
+
+.my-sessions-section {
+    margin-top: var(--spacing-xl);
+}
+
+.no-content {
+    text-align: center;
+    color: var(--text-muted);
+    padding: var(--spacing-xl);
+    font-style: italic;
+}
+
+/* ---------------------------------------------------------------- */
+/* Session Control View */
+/* ---------------------------------------------------------------- */
+
+.session-control-view {
+    padding: 40px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.session-control-header {
+    margin-bottom: var(--spacing-xl);
+}
+
+.back-btn {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-md);
+}
+
+.back-btn:hover {
+    background-color: var(--bg-hover);
+}
+
+.session-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+}
+
+.session-code-display {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    color: var(--text-secondary);
+}
+
+.game-status-panel {
+    background-color: var(--bg-secondary);
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-xl);
+}
+
+.session-info {
+    text-align: center;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.players-panel, .marking-panel {
+    background-color: var(--bg-secondary);
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-xl);
+}
+
+.players-panel h3, .marking-panel h3 {
+    margin-top: 0;
+    margin-bottom: var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 2px solid var(--border-color);
+}
+
+/* Table styling for players and marking results */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: var(--spacing-md);
+}
+
+.data-table thead th {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.data-table tbody td {
+    padding: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.data-table tbody tr.odd {
+    background-color: var(--bg-tertiary);
+}
+
+.data-table tbody tr:hover {
+    background-color: var(--bg-hover);
+}
+
+.player-name {
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.action-cell {
+    text-align: right;
+    width: 50px;
+}
+
+.rank-cell {
+    text-align: center;
+    width: 60px;
+    font-weight: bold;
+    color: var(--color-primary);
+}
+
+.score-cell {
+    font-weight: 600;
+    color: var(--color-success);
+}
+
+.marker-name {
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.reset-btn {
+    margin-top: var(--spacing-md);
+    background-color: var(--color-warning);
+    color: black;
+}
+
+.reset-btn:hover {
+    opacity: 0.85;
+}
+
+/* Marking Results Section */
+.marking-results {
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-lg);
+    border-top: 2px solid var(--border-color);
+}
+
+.marking-results h4 {
+    margin-top: 0;
+    margin-bottom: var(--spacing-md);
+    color: var(--color-primary);
+}
+
+.info-message {
+    color: var(--text-secondary);
+    font-style: italic;
+    text-align: center;
+    padding: var(--spacing-md);
+    background-color: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    margin: var(--spacing-md) 0;
+}
+
+.warning-btn {
+    background-color: var(--color-warning);
+    color: black;
+}
+
+.warning-btn:hover {
+    opacity: 0.85;
+}
+
+.secondary-btn {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.secondary-btn:hover {
+    background-color: var(--bg-hover);
+}
+
+.danger-zone {
+    margin-top: var(--spacing-xl);
+    padding-top: var(--spacing-xl);
+    border-top: 2px solid var(--color-danger);
+    text-align: center;
+}
+
+.danger-btn-large {
+    background-color: var(--color-danger);
+    color: white;
+    padding: 15px 30px;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.danger-btn-large:hover {
+    background-color: var(--color-danger-hover);
 }

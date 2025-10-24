@@ -7,6 +7,7 @@ const { Pool } = require('pg');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const validator = require('validator');
 
 const app = express();
 
@@ -35,7 +36,7 @@ const fileFilter = (req, file, cb) => {
   const allowedTypes = /jpeg|jpg|png|gif|webp/;
   const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
   const mimetype = allowedTypes.test(file.mimetype);
-  
+
   if (extname && mimetype) {
     cb(null, true);
   } else {
@@ -43,11 +44,43 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-
-const upload = multer({ 
+const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
+});
+
+// Audio upload configuration
+const audioStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, 'uploads', 'quiz-audio');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'audio-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const audioFileFilter = (req, file, cb) => {
+  const allowedTypes = /mp3|wav|ogg|m4a/;
+  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+  const mimetype = /audio/.test(file.mimetype);
+
+  if (extname && mimetype) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only audio files are allowed (mp3, wav, ogg, m4a)'));
+  }
+};
+
+const audioUpload = multer({
+  storage: audioStorage,
+  fileFilter: audioFileFilter,
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit for audio
 });
 
 // Serve uploaded files statically
@@ -97,6 +130,67 @@ async function generateSessionCode() {
   throw new Error('Failed to generate unique session code');
 }
 
+// ============= INPUT SANITIZATION =============
+// Sanitize text input to prevent XSS, SQL injection, and prompt injection
+function sanitizeText(input, maxLength = 500) {
+  if (!input || typeof input !== 'string') return '';
+
+  // Trim whitespace
+  let sanitized = input.trim();
+
+  // Limit length
+  if (sanitized.length > maxLength) {
+    sanitized = sanitized.substring(0, maxLength);
+  }
+
+  // Escape HTML to prevent XSS
+  sanitized = validator.escape(sanitized);
+
+  // Remove potentially dangerous characters for prompt injection
+  // Remove: script tags, SQL keywords in suspicious patterns, control characters
+  sanitized = sanitized
+    .replace(/<script[^>]*>.*?<\/script>/gi, '')
+    .replace(/javascript:/gi, '')
+    .replace(/on\w+\s*=/gi, ''); // Remove event handlers like onclick=
+
+  return sanitized;
+}
+
+// Sanitize player name (stricter rules)
+function sanitizeName(name) {
+  if (!name || typeof name !== 'string') return '';
+
+  let sanitized = name.trim();
+
+  // Limit name length to 50 characters
+  if (sanitized.length > 50) {
+    return ''; // Reject names that are too long
+  }
+
+  // Check for dangerous characters and reject outright
+  // Only allow: letters, numbers, spaces, hyphens, underscores
+  if (!/^[\w\s\-]+$/.test(sanitized)) {
+    return ''; // Reject if contains any other characters (including <, >, ', ", etc.)
+  }
+
+  return sanitized;
+}
+
+// Sanitize quiz/round names
+function sanitizeQuizName(name) {
+  return sanitizeText(name, 100); // Max 100 chars for quiz/round names
+}
+
+// Sanitize question text and answers
+function sanitizeQuestionText(text) {
+  return sanitizeText(text, 1000); // Max 1000 chars for questions
+}
+
+// Sanitize answer text
+function sanitizeAnswer(text) {
+  return sanitizeText(text, 500); // Max 500 chars for answers
+}
+
 // Validate session and check expiry (1 hour timeout)
 async function validateSession(sessionCode) {
   if (!sessionCode) return null;
@@ -125,6 +219,34 @@ async function validateSession(sessionCode) {
   );
 
   return session;
+}
+
+// Middleware to handle session resolution
+// Attaches req.sessionContext with all necessary session/quiz info
+async function resolveSessionContext(req, res, next) {
+  const sessionCode = req.query.session || (req.body && req.body.session);
+
+  try {
+    if (!sessionCode) {
+      return res.status(400).json({ error: 'Session code required' });
+    }
+
+    const session = await validateSession(sessionCode);
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found or expired' });
+    }
+
+    req.sessionContext = {
+      sessionId: session.id,
+      sessionCode: session.session_code,
+      quizId: session.current_quiz_id
+    };
+
+    next();
+  } catch (err) {
+    console.error('Error in resolveSessionContext:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 }
 
 // MIGRATION: Rename game_session to quizzes
@@ -282,6 +404,30 @@ async function validateSession(sessionCode) {
         image_url TEXT,
         question_order INTEGER,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Step 8b: Add audio_url column to questions table if it doesn't exist
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='questions' AND column_name='audio_url') THEN
+          ALTER TABLE questions ADD COLUMN audio_url TEXT;
+          RAISE NOTICE 'Added audio_url to questions';
+        END IF;
+      END
+      $$;
+    `);
+
+    // Step 8c: Create multiple_choice_options table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS multiple_choice_options (
+        id SERIAL PRIMARY KEY,
+        question_id INTEGER REFERENCES questions(id) ON DELETE CASCADE,
+        option_text TEXT NOT NULL,
+        option_order INTEGER NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT unique_question_option_order UNIQUE(question_id, option_order)
       )
     `);
 
@@ -538,72 +684,40 @@ app.get('/api/quiz/:id', async (req, res) => {
 });
 
 // Check if game is active (lobby is active only when status is 'active')
-app.get('/api/game/status', async (req, res) => {
-  const sessionCode = req.query.session;
+app.get('/api/game/status', resolveSessionContext, async (req, res) => {
+  const ctx = req.sessionContext;
 
   try {
-    let quizId = currentQuizId;
+    // Query game_sessions table for session status
+    const sessionResult = await pool.query(
+      `SELECT s.status, s.current_round_id, s.marking_mode, r.round_type, r.name as round_name
+       FROM game_sessions s
+       LEFT JOIN rounds r ON s.current_round_id = r.id
+       WHERE s.id = $1`,
+      [ctx.sessionId]
+    );
 
-    // NEW SYSTEM: If session code provided, validate and get session's quiz_id
-    if (sessionCode) {
-      const session = await validateSession(sessionCode);
-      if (!session) {
-        return res.status(404).json({ error: 'Session not found or expired' });
-      }
-
-      // Query game_sessions table for session status
-      const sessionResult = await pool.query(
-        `SELECT s.status, s.current_round_id, s.marking_mode, r.round_type, r.name as round_name
-         FROM game_sessions s
-         LEFT JOIN rounds r ON s.current_round_id = r.id
-         WHERE s.id = $1`,
-        [session.id]
-      );
-
-      if (sessionResult.rows.length === 0) {
-        return res.json({
-          active: false,
-          status: 'waiting',
-          current_round_id: null,
-          current_round_type: null,
-          current_round_name: null,
-          marking_mode: false
-        });
-      }
-
-      const row = sessionResult.rows[0];
-      const isActive = row.status === 'active' || row.status === 'closed';
-
-      return res.json({
-        active: isActive,
-        status: row.status,
-        current_round_id: row.current_round_id,
-        current_round_type: row.round_type,
-        current_round_name: row.round_name,
-        marking_mode: row.marking_mode || false
-      });
-    }
-
-    // OLD SYSTEM: No session, use currentQuizId
-    if (!quizId) {
+    if (sessionResult.rows.length === 0) {
       return res.json({
         active: false,
         status: 'waiting',
         current_round_id: null,
         current_round_type: null,
-        current_round_name: null
+        current_round_name: null,
+        marking_mode: false
       });
     }
 
-    // OLD SYSTEM: This path is deprecated, quizzes don't have status/current_round
-    // Return empty response for old system
+    const row = sessionResult.rows[0];
+    const isActive = row.status === 'active' || row.status === 'closed';
+
     return res.json({
-      active: false,
-      status: 'waiting',
-      current_round_id: null,
-      current_round_type: null,
-      current_round_name: null,
-      marking_mode: false
+      active: isActive,
+      status: row.status,
+      current_round_id: row.current_round_id,
+      current_round_type: row.round_type,
+      current_round_name: row.round_name,
+      marking_mode: row.marking_mode || false
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -611,37 +725,17 @@ app.get('/api/game/status', async (req, res) => {
 });
 
 // Toggle game status (UPDATED FOR 3 STATES)
-app.post('/api/game/toggle-status', async (req, res) => {
-  const sessionCode = req.query.session;
+app.post('/api/game/toggle-status', resolveSessionContext, async (req, res) => {
+  const ctx = req.sessionContext;
 
   try {
-    let quizId = currentQuizId;
-    let tableName = 'game_session';
-    let sessionId = null;
-
-    // NEW SYSTEM: If session code provided, use game_sessions table
-    if (sessionCode) {
-      const session = await validateSession(sessionCode);
-      if (!session) {
-        return res.status(404).json({ error: 'Session not found or expired' });
-      }
-      tableName = 'game_sessions';
-      sessionId = session.id;
-      quizId = session.id; // Use session id for updates
-    } else {
-      // OLD SYSTEM: Use currentQuizId
-      if (!quizId) {
-        return res.status(400).json({ error: 'No active quiz selected' });
-      }
-    }
-
     const currentStatusResult = await pool.query(
-      `SELECT status FROM ${tableName} WHERE id = $1`,
-      [quizId]
+      'SELECT status FROM game_sessions WHERE id = $1',
+      [ctx.sessionId]
     );
 
     if (currentStatusResult.rows.length === 0) {
-        return res.status(404).json({ error: 'Quiz/session not found' });
+        return res.status(404).json({ error: 'Session not found' });
     }
 
     const currentStatus = currentStatusResult.rows[0].status;
@@ -650,39 +744,26 @@ app.post('/api/game/toggle-status', async (req, res) => {
 
     if (currentStatus === 'waiting') {
         newStatus = 'active';
-        // When starting the game, ensure round is clear just in case
-        updateQuery = `UPDATE ${tableName} SET status = $1, current_round_id = NULL WHERE id = $2 RETURNING *`;
+        updateQuery = 'UPDATE game_sessions SET status = $1, current_round_id = NULL WHERE id = $2 RETURNING *';
     } else if (currentStatus === 'active') {
-        // Game is running, close the lobby
         newStatus = 'closed';
-        updateQuery = `UPDATE ${tableName} SET status = $1 WHERE id = $2 RETURNING *`;
+        updateQuery = 'UPDATE game_sessions SET status = $1 WHERE id = $2 RETURNING *';
     } else if (currentStatus === 'closed') {
-        // Game is running, re-open the lobby
         newStatus = 'active';
-        updateQuery = `UPDATE ${tableName} SET status = $1 WHERE id = $2 RETURNING *`;
+        updateQuery = 'UPDATE game_sessions SET status = $1 WHERE id = $2 RETURNING *';
     } else {
-        // Fallback to waiting and ensure active round is cleared
         newStatus = 'waiting';
-        updateQuery = `UPDATE ${tableName} SET status = $1, current_round_id = NULL WHERE id = $2 RETURNING *`;
+        updateQuery = 'UPDATE game_sessions SET status = $1, current_round_id = NULL WHERE id = $2 RETURNING *';
     }
 
     // If we transition to 'waiting' (e.g. game over), clear active round AND flush players
     if (newStatus === 'waiting') {
-        updateQuery = `UPDATE ${tableName} SET status = $1, current_round_id = NULL WHERE id = $2 RETURNING *`;
-
-        // Flush players based on session or old system
-        if (sessionId) {
-          await pool.query('DELETE FROM players WHERE session_id = $1', [sessionId]);
-        } else {
-          await pool.query('DELETE FROM players WHERE session_id IS NULL');
-        }
+        updateQuery = 'UPDATE game_sessions SET status = $1, current_round_id = NULL WHERE id = $2 RETURNING *';
+        await pool.query('DELETE FROM players WHERE session_id = $1', [ctx.sessionId]);
     }
 
     // Update the status in the database
-    const updateResult = await pool.query(
-      updateQuery,
-      [newStatus, quizId]
-    );
+    const updateResult = await pool.query(updateQuery, [newStatus, ctx.sessionId]);
 
     res.json({ quiz: updateResult.rows[0], message: `Game status set to ${newStatus}` });
   } catch (err) {
@@ -726,39 +807,44 @@ app.get('/api/quizzes/archived', async (req, res) => {
 // ============= PLAYER ENDPOINTS =============
 
 // Join game - add player
-app.post('/api/join', async (req, res) => {
+app.post('/api/join', resolveSessionContext, async (req, res) => {
   const { name } = req.body;
-  const sessionCode = req.query.session;
+  const ctx = req.sessionContext;
 
   try {
-    let sessionId = null;
+    // Validate name is not blank
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Name cannot be blank' });
+    }
 
-    // NEW SYSTEM: If session code provided, validate and get session_id
-    if (sessionCode) {
-      const session = await validateSession(sessionCode);
-      if (!session) {
-        return res.status(404).json({ error: 'Session not found or expired' });
-      }
-      sessionId = session.id;
+    // Sanitize name to prevent XSS and injection attacks
+    const sanitizedName = sanitizeName(name);
+
+    // Check if sanitization removed all content
+    if (!sanitizedName || sanitizedName.length === 0) {
+      return res.status(400).json({ error: 'Name contains invalid characters' });
     }
 
     // Check if player already exists in this session (or in old system with NULL)
     const existing = await pool.query(
       'SELECT * FROM players WHERE name = $1 AND session_id IS NOT DISTINCT FROM $2',
-      [name, sessionId]
+      [sanitizedName, ctx.sessionId]
     );
 
-    if (existing.rows.length === 0) {
-      await pool.query(
-        'INSERT INTO players (name, session_id) VALUES ($1, $2)',
-        [name, sessionId]
-      );
+    if (existing.rows.length > 0) {
+      return res.status(409).json({ error: 'Name already taken' });
     }
+
+    // Insert new player
+    await pool.query(
+      'INSERT INTO players (name, session_id) VALUES ($1, $2)',
+      [sanitizedName, ctx.sessionId]
+    );
 
     // Return all players for this session (or NULL for old system)
     const result = await pool.query(
       'SELECT name FROM players WHERE session_id IS NOT DISTINCT FROM $1 ORDER BY joined_at',
-      [sessionId]
+      [ctx.sessionId]
     );
     res.json({ players: result.rows.map(r => r.name) });
   } catch (err) {
@@ -767,25 +853,14 @@ app.post('/api/join', async (req, res) => {
 });
 
 // Get all players
-app.get('/api/players', async (req, res) => {
-  const sessionCode = req.query.session;
+app.get('/api/players', resolveSessionContext, async (req, res) => {
+  const ctx = req.sessionContext;
 
   try {
-    let sessionId = null;
-
-    // NEW SYSTEM: If session code provided, validate and get session_id
-    if (sessionCode) {
-      const session = await validateSession(sessionCode);
-      if (!session) {
-        return res.status(404).json({ error: 'Session not found or expired' });
-      }
-      sessionId = session.id;
-    }
-
     // Get players for this session (or NULL for old system)
     const result = await pool.query(
       'SELECT name FROM players WHERE session_id IS NOT DISTINCT FROM $1 ORDER BY joined_at',
-      [sessionId]
+      [ctx.sessionId]
     );
     res.json({ players: result.rows.map(r => r.name) });
   } catch (err) {
@@ -804,26 +879,15 @@ app.post('/api/reset', async (req, res) => {
 });
 
 // Remove a specific player
-app.delete('/api/player/remove/:name', async (req, res) => {
+app.delete('/api/player/remove/:name', resolveSessionContext, async (req, res) => {
   const { name } = req.params;
-  const sessionCode = req.query.session;
+  const ctx = req.sessionContext;
 
   try {
-    let sessionId = null;
-
-    // NEW SYSTEM: If session code provided, get session_id
-    if (sessionCode) {
-      const session = await validateSession(sessionCode);
-      if (!session) {
-        return res.status(404).json({ error: 'Session not found or expired' });
-      }
-      sessionId = session.id;
-    }
-
     // Delete player with session filter
     const result = await pool.query(
       'DELETE FROM players WHERE name = $1 AND session_id IS NOT DISTINCT FROM $2 RETURNING *',
-      [name, sessionId]
+      [name, ctx.sessionId]
     );
 
     if (result.rowCount === 0) {
@@ -833,7 +897,7 @@ app.delete('/api/player/remove/:name', async (req, res) => {
     // Return updated list of players for this session
     const playersResult = await pool.query(
       'SELECT name FROM players WHERE session_id IS NOT DISTINCT FROM $1 ORDER BY joined_at',
-      [sessionId]
+      [ctx.sessionId]
     );
 
     res.json({
@@ -849,49 +913,34 @@ app.delete('/api/player/remove/:name', async (req, res) => {
 // ============= MC QUESTION DISPLAY ENDPOINTS =============
 
 // NEW ENDPOINT: MC sets the round to be displayed
-app.post('/api/game/set-round/:roundId', async (req, res) => {
+app.post('/api/game/set-round/:roundId', resolveSessionContext, async (req, res) => {
   const roundId = parseInt(req.params.roundId);
-  const sessionCode = req.query.session;
+  const ctx = req.sessionContext;
 
   try {
-    let quizId = currentQuizId;
-    let tableName = 'game_session';
-
-    // NEW SYSTEM: If session code provided, use game_sessions table
-    if (sessionCode) {
-      const session = await validateSession(sessionCode);
-      if (!session) {
-        return res.status(404).json({ error: 'Session not found or expired' });
-      }
-      tableName = 'game_sessions';
-      quizId = session.quiz_id; // Use session's quiz_id for validation
-    } else {
-      // OLD SYSTEM: Use currentQuizId
-      if (!quizId) {
-        return res.status(400).json({ error: 'No active quiz selected' });
-      }
-    }
-
     // Check for "clear display" signal (roundId === 0)
     if (roundId === 0) {
-      await pool.query(`UPDATE ${tableName} SET current_round_id = NULL WHERE ${sessionCode ? 'session_code' : 'id'} = $1`, [sessionCode || quizId]);
+      await pool.query(
+        'UPDATE game_sessions SET current_round_id = NULL WHERE id = $1',
+        [ctx.sessionId]
+      );
       return res.json({ success: true, message: 'Display cleared (current_round_id set to NULL)' });
     }
 
-    // Validate that the round belongs to the current quiz
+    // Validate that the round exists
     const roundResult = await pool.query(
-      'SELECT id FROM rounds WHERE id = $1 AND quiz_id = $2',
-      [roundId, quizId]
+      'SELECT id FROM rounds WHERE id = $1',
+      [roundId]
     );
 
     if (roundResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Round not found for current quiz.' });
+      return res.status(404).json({ error: 'Round not found.' });
     }
 
     // Set the current_round_id in the game session
     await pool.query(
-      `UPDATE ${tableName} SET current_round_id = $1 WHERE ${sessionCode ? 'session_code' : 'id'} = $2`,
-      [roundId, sessionCode || quizId]
+      'UPDATE game_sessions SET current_round_id = $1 WHERE id = $2',
+      [roundId, ctx.sessionId]
     );
 
     res.json({ success: true, roundId: roundId, message: `Round ${roundId} set for display.` });
@@ -901,48 +950,53 @@ app.post('/api/game/set-round/:roundId', async (req, res) => {
 });
 
 // NEW ENDPOINT: Players poll this to get the current round and questions
-app.get('/api/game/display-data', async (req, res) => {
-  const sessionCode = req.query.session;
+app.get('/api/game/display-data', resolveSessionContext, async (req, res) => {
+  const ctx = req.sessionContext;
 
   try {
-    let currentRoundId = null;
+    // Get current_round_id from session
+    const sessionResult = await pool.query(
+      'SELECT current_round_id FROM game_sessions WHERE id = $1',
+      [ctx.sessionId]
+    );
 
-    // NEW SYSTEM: If session code provided, get from game_sessions
-    if (sessionCode) {
-      const session = await validateSession(sessionCode);
-      if (!session) {
-        return res.json({ round: null, questions: [] });
-      }
-
-      currentRoundId = session.current_round_id;
-    } else {
-      // OLD SYSTEM: Use currentQuizId (deprecated)
-      if (!currentQuizId) {
-        return res.json({ round: null, questions: [] });
-      }
-
-      // OLD: This path won't work anymore since quizzes don't have current_round_id
-      // Return empty for old system
-      return res.json({ round: null, questions: [] });
-    }
+    const currentRoundId = sessionResult.rows[0]?.current_round_id;
 
     if (!currentRoundId) {
       return res.json({ round: null, questions: [] });
     }
 
-    // 2. Get the round details
+    // Get the round details
     const roundResult = await pool.query(
       'SELECT id, name, round_type FROM rounds WHERE id = $1',
       [currentRoundId]
     );
     const round = roundResult.rows[0];
 
-    // 3. Get all questions (and non-sensitive data: NO ANSWER) for that round
+    // Get all questions (non-sensitive data: NO ANSWER) for that round
     const questionsResult = await pool.query(
-      'SELECT id, question_text, image_url, question_order FROM questions WHERE round_id = $1 ORDER BY question_order',
+      'SELECT id, question_text, image_url, audio_url, question_order FROM questions WHERE round_id = $1 ORDER BY question_order',
       [currentRoundId]
     );
     const questions = questionsResult.rows;
+
+    // For multiple choice questions, fetch and shuffle options
+    for (let question of questions) {
+      const optionsResult = await pool.query(
+        'SELECT option_text, option_order FROM multiple_choice_options WHERE question_id = $1 ORDER BY option_order',
+        [question.id]
+      );
+
+      if (optionsResult.rows.length > 0) {
+        // Shuffle options using Fisher-Yates algorithm
+        const options = optionsResult.rows.map(o => o.option_text);
+        for (let i = options.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [options[i], options[j]] = [options[j], options[i]];
+        }
+        question.options = options;
+      }
+    }
 
     res.json({ round: round, questions: questions });
 
@@ -957,6 +1011,13 @@ app.get('/api/game/display-data', async (req, res) => {
 app.post('/api/rounds', async (req, res) => {
   const { name, round_type, quiz_id } = req.body;
   try {
+    // Sanitize round name
+    const sanitizedName = sanitizeQuizName(name);
+
+    if (!sanitizedName) {
+      return res.status(400).json({ error: 'Round name is required' });
+    }
+
     // Use quiz_id from request body (for sessions) or fall back to currentQuizId (old system)
     const quizId = quiz_id || currentQuizId;
 
@@ -973,7 +1034,7 @@ app.post('/api/rounds', async (req, res) => {
 
     const result = await pool.query(
       'INSERT INTO rounds (quiz_id, name, round_type, round_order) VALUES ($1, $2, $3, $4) RETURNING *',
-      [quizId, name, round_type, nextOrder]
+      [quizId, sanitizedName, round_type, nextOrder]
     );
     res.json(result.rows[0]);
   } catch (err) {
@@ -1036,12 +1097,30 @@ app.post('/api/questions/upload-image', upload.single('image'), (req, res) => {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
-    
+
     // Return the URL path to access this image
     const imageUrl = `/uploads/quiz-images/${req.file.filename}`;
-    res.json({ 
+    res.json({
       imageUrl: imageUrl,
-      filename: req.file.filename 
+      filename: req.file.filename
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Audio upload endpoint for music rounds
+app.post('/api/questions/upload-audio', audioUpload.single('audio'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No audio file uploaded' });
+    }
+
+    // Return the URL path to access this audio
+    const audioUrl = `/uploads/quiz-audio/${req.file.filename}`;
+    res.json({
+      audioUrl: audioUrl,
+      filename: req.file.filename
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1050,20 +1129,44 @@ app.post('/api/questions/upload-image', upload.single('image'), (req, res) => {
 
 // Add a question to a round
 app.post('/api/questions', async (req, res) => {
-  const { round_id, question_text, answer, image_url } = req.body;
+  const { round_id, question_text, answer, image_url, audio_url, options } = req.body;
   try {
+    // Sanitize question text and answer
+    const sanitizedQuestionText = sanitizeQuestionText(question_text);
+    const sanitizedAnswer = answer ? sanitizeAnswer(answer) : null;
+
+    if (!sanitizedQuestionText) {
+      return res.status(400).json({ error: 'Question text is required' });
+    }
+
     // Get next order number
     const orderResult = await pool.query(
       'SELECT COALESCE(MAX(question_order), 0) + 1 as next_order FROM questions WHERE round_id = $1',
       [round_id]
     );
     const nextOrder = orderResult.rows[0].next_order;
-    
+
     const result = await pool.query(
-      'INSERT INTO questions (round_id, question_text, answer, image_url, question_order) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [round_id, question_text, answer, image_url, nextOrder]
+      'INSERT INTO questions (round_id, question_text, answer, image_url, audio_url, question_order) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [round_id, sanitizedQuestionText, sanitizedAnswer, image_url, audio_url, nextOrder]
     );
-    res.json(result.rows[0]);
+
+    const question = result.rows[0];
+
+    // If options provided (multiple choice), sanitize and insert them
+    if (options && Array.isArray(options) && options.length > 0) {
+      for (let i = 0; i < options.length; i++) {
+        const sanitizedOption = sanitizeAnswer(options[i]);
+        if (sanitizedOption) {
+          await pool.query(
+            'INSERT INTO multiple_choice_options (question_id, option_text, option_order) VALUES ($1, $2, $3)',
+            [question.id, sanitizedOption, i]
+          );
+        }
+      }
+    }
+
+    res.json(question);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1094,6 +1197,14 @@ app.post('/api/answers/submit', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    // Sanitize player name and answer text
+    const sanitizedPlayerName = sanitizeName(player_name);
+    const sanitizedAnswerText = sanitizeAnswer(answer_text);
+
+    if (!sanitizedPlayerName || !sanitizedAnswerText) {
+      return res.status(400).json({ error: 'Invalid player name or answer text' });
+    }
+
     let sessionId = null;
 
     // NEW SYSTEM: If session code provided, validate and get session_id
@@ -1112,7 +1223,7 @@ app.post('/api/answers/submit', async (req, res) => {
        VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT (session_id, player_name, question_id)
        DO UPDATE SET answer_text = $5, submitted_at = CURRENT_TIMESTAMP`,
-      [sessionId, player_name, question_id, round_id, answer_text]
+      [sessionId, sanitizedPlayerName, question_id, round_id, sanitizedAnswerText]
     );
 
     res.json({ success: true, message: 'Answer submitted successfully' });
@@ -1122,26 +1233,15 @@ app.post('/api/answers/submit', async (req, res) => {
 });
 
 // Get player's answers for a specific round
-app.get('/api/answers/:playerName/:roundId', async (req, res) => {
+app.get('/api/answers/:playerName/:roundId', resolveSessionContext, async (req, res) => {
   const { playerName, roundId } = req.params;
-  const sessionCode = req.query.session;
+  const ctx = req.sessionContext;
 
   try {
-    let sessionId = null;
-
-    // NEW SYSTEM: If session code provided, validate and get session_id
-    if (sessionCode) {
-      const session = await validateSession(sessionCode);
-      if (!session) {
-        return res.json({ answers: {} }); // Return empty if session invalid
-      }
-      sessionId = session.id;
-    }
-
     const result = await pool.query(
       `SELECT question_id, answer_text FROM player_answers
        WHERE player_name = $1 AND round_id = $2 AND session_id IS NOT DISTINCT FROM $3`,
-      [playerName, roundId, sessionId]
+      [playerName, roundId, ctx.sessionId]
     );
 
     // Return as a map of question_id -> answer_text
@@ -1163,7 +1263,19 @@ app.get('/api/rounds/:roundId/questions', async (req, res) => {
       'SELECT * FROM questions WHERE round_id = $1 ORDER BY question_order',
       [req.params.roundId]
     );
-    res.json({ questions: result.rows });
+
+    const questions = result.rows;
+
+    // For each question, fetch its multiple choice options (if any)
+    for (let question of questions) {
+      const optionsResult = await pool.query(
+        'SELECT option_text, option_order FROM multiple_choice_options WHERE question_id = $1 ORDER BY option_order',
+        [question.id]
+      );
+      question.options = optionsResult.rows;
+    }
+
+    res.json({ questions });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

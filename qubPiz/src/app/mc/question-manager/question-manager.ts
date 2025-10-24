@@ -2,13 +2,14 @@ import { Component, Input, OnInit, OnChanges, SimpleChanges } from '@angular/cor
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ImageUpload } from '../../image-upload/image-upload';
+import { AudioUpload } from '../../audio-upload/audio-upload';
 import { ApiService } from '../../api.service';
 import { Round, Question } from '../../shared/types';
 
 @Component({
   selector: 'app-question-manager',
   standalone: true,
-  imports: [CommonModule, FormsModule, ImageUpload],
+  imports: [CommonModule, FormsModule, ImageUpload, AudioUpload],
   templateUrl: './question-manager.html',
   styleUrl: './question-manager.css'
 })
@@ -27,6 +28,21 @@ export class QuestionManager implements OnInit, OnChanges {
   imageRoundQuestion = '';
   newImageItem = {
     imageUrl: '',
+    answer: ''
+  };
+
+  // For multiple choice rounds - question with 3 options
+  newMultipleChoice = {
+    text: '',
+    correctAnswer: '',
+    wrongAnswer1: '',
+    wrongAnswer2: ''
+  };
+
+  // For music rounds - one question text, multiple audio/answer pairs
+  musicRoundQuestion = '';
+  newMusicItem = {
+    audioUrl: '',
     answer: ''
   };
 
@@ -51,7 +67,15 @@ export class QuestionManager implements OnInit, OnChanges {
   }
 
   get isTextRound(): boolean {
-    return this.currentRound?.round_type === 'text' || this.currentRound?.round_type === 'music';
+    return this.currentRound?.round_type === 'text';
+  }
+
+  get isMultipleChoiceRound(): boolean {
+    return this.currentRound?.round_type === 'multiple_choice';
+  }
+
+  get isMusicRound(): boolean {
+    return this.currentRound?.round_type === 'music';
   }
 
   loadQuestions() {
@@ -70,6 +94,10 @@ export class QuestionManager implements OnInit, OnChanges {
 
   onImageUploaded(imageUrl: string) {
     this.newImageItem.imageUrl = imageUrl;
+  }
+
+  onAudioUploaded(audioUrl: string) {
+    this.newMusicItem.audioUrl = audioUrl;
   }
 
   // For text rounds - traditional Q&A
@@ -159,9 +187,106 @@ export class QuestionManager implements OnInit, OnChanges {
     return '';
   }
 
+  // For music rounds - add audio with answer to the shared question
+  addMusicItem() {
+    if (!this.musicRoundQuestion.trim()) {
+      console.log('Please enter the main question for this music round');
+      return;
+    }
+
+    if (!this.newMusicItem.audioUrl) {
+      console.log('Please upload an audio file');
+      return;
+    }
+
+    if (!this.newMusicItem.answer.trim()) {
+      console.log('Please enter an answer for this audio');
+      return;
+    }
+
+    // All audio files in the round share the same question_text
+    this.api.post('/api/questions', {
+      round_id: this.currentRound!.id,
+      question_text: this.musicRoundQuestion,
+      answer: this.newMusicItem.answer,
+      image_url: null,
+      audio_url: this.newMusicItem.audioUrl
+    }).subscribe({
+      next: () => {
+        this.loadQuestions();
+        this.newMusicItem = { audioUrl: '', answer: '' };
+      },
+      error: (err) => {
+        console.error('Error adding audio:', err);
+      }
+    });
+  }
+
+  // For multiple choice rounds - add question with 3 options
+  saveMultipleChoice() {
+    if (!this.newMultipleChoice.text.trim()) {
+      console.log('Please enter a question');
+      return;
+    }
+
+    if (!this.newMultipleChoice.correctAnswer.trim()) {
+      console.log('Please enter the correct answer');
+      return;
+    }
+
+    if (!this.newMultipleChoice.wrongAnswer1.trim() ||
+        !this.newMultipleChoice.wrongAnswer2.trim()) {
+      console.log('Please enter all 2 wrong answers');
+      return;
+    }
+
+    // Build options array: correct answer first (order 0), then wrong answers (order 1-2)
+    const options = [
+      this.newMultipleChoice.correctAnswer,
+      this.newMultipleChoice.wrongAnswer1,
+      this.newMultipleChoice.wrongAnswer2
+    ];
+
+    this.api.post('/api/questions', {
+      round_id: this.currentRound!.id,
+      question_text: this.newMultipleChoice.text,
+      answer: this.newMultipleChoice.correctAnswer,  // Store correct answer for validation
+      image_url: null,
+      options: options
+    }).subscribe({
+      next: () => {
+        this.loadQuestions();
+        this.newMultipleChoice = {
+          text: '',
+          correctAnswer: '',
+          wrongAnswer1: '',
+          wrongAnswer2: ''
+        };
+      },
+      error: (err) => {
+        console.error('Error saving multiple choice question:', err);
+      }
+    });
+  }
+
+  getAudioUrl(path: string | null | undefined): string {
+    if (path) {
+      return `${this.api.apiBaseUrl}${path}`;
+    }
+    return '';
+  }
+
   resetForms() {
     this.newTextQuestion = { text: '', answer: '' };
     this.newImageItem = { imageUrl: '', answer: '' };
     this.imageRoundQuestion = '';
+    this.newMusicItem = { audioUrl: '', answer: '' };
+    this.musicRoundQuestion = '';
+    this.newMultipleChoice = {
+      text: '',
+      correctAnswer: '',
+      wrongAnswer1: '',
+      wrongAnswer2: ''
+    };
   }
 }

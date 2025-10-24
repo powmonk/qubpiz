@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { GameStatusService } from '../game-status-service';
 import { ApiService } from '../api.service';
+import { UrlBuilderService } from '../url-builder.service';
 import { Assignment } from '../shared/types';
 
 @Component({
@@ -24,7 +25,8 @@ export class Marking implements OnInit, OnDestroy {
   constructor(
     private api: ApiService,
     private gameStatusService: GameStatusService,
-    private router: Router
+    private router: Router,
+    private urlBuilder: UrlBuilderService
   ) {}
 
   ngOnInit() {
@@ -58,12 +60,7 @@ export class Marking implements OnInit, OnDestroy {
   }
 
   loadAssignments() {
-    // Get session code from game status service
-    const sessionCode = this.gameStatusService.getCurrentSession();
-    const url = sessionCode
-      ? `/api/marking/assignments/${this.playerName}?session=${sessionCode}`
-      : `/api/marking/assignments/${this.playerName}`;
-
+    const url = this.urlBuilder.buildUrl(`/api/marking/assignments/${this.playerName}`);
     this.api.get<{ assignments: Assignment[] }>(url).subscribe({
       next: (data) => {
         this.assignments = data.assignments;
@@ -115,5 +112,12 @@ export class Marking implements OnInit, OnDestroy {
 
   isComplete(assignment: Assignment): boolean {
     return assignment.questions.every(q => assignment.marks[q.id] !== undefined);
+  }
+
+  getImageUrl(path: string | null): string {
+    if (path) {
+      return `${this.api.apiBaseUrl}${path}`;
+    }
+    return '';
   }
 }

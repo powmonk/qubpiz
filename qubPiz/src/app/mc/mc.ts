@@ -5,7 +5,9 @@ import { RoundManager } from './round-manager/round-manager';
 import { QuestionManager } from './question-manager/question-manager';
 import { GameStatusService } from '../game-status-service';
 import { ApiService } from '../api.service';
-import { Subscription } from 'rxjs';
+import { UrlBuilderService } from '../url-builder.service';
+import { Subscription, interval } from 'rxjs';
+import { switchMap, startWith } from 'rxjs/operators';
 import { Quiz, Round, GameSession } from '../shared/types';
 
 @Component({
@@ -32,7 +34,6 @@ export class Mc implements OnInit, OnDestroy {
   players: string[] = [];
   markingMode: boolean = false;
   markingResults: Array<{player: string, score: number, possible: number, markedBy: string}> = [];
-  showResults: boolean = false;
 
   // NEW: Session management properties
   activeSessions: GameSession[] = [];
@@ -45,11 +46,13 @@ export class Mc implements OnInit, OnDestroy {
   currentRoundId: number | null = null; // Track current round from game status
 
   private gameStatusSubscription?: Subscription;
+  private markingResultsSubscription?: Subscription;
   private readonly OWNER_ID_KEY = 'qubpiz_mc_owner_id';
 
   constructor(
     private api: ApiService,
-    private gameStatusService: GameStatusService
+    private gameStatusService: GameStatusService,
+    private urlBuilder: UrlBuilderService
   ) {
     // Generate or retrieve MC owner ID
     this.ownerId = this.getOrCreateOwnerId();
@@ -102,14 +105,77 @@ export class Mc implements OnInit, OnDestroy {
       if (!data) return;
 
       // Update marking mode and current round from game status
+      const wasMarkingMode = this.markingMode;
       this.markingMode = data.marking_mode;
       this.currentRoundId = data.current_round_id;
+
+      // Start/stop marking results polling based on marking mode
+      if (this.markingMode && !wasMarkingMode) {
+        this.startMarkingResultsPolling();
+      } else if (!this.markingMode && wasMarkingMode) {
+        this.stopMarkingResultsPolling();
+      }
 
       // Load players when in a session
       if (this.currentSessionCode) {
         this.loadPlayersForSession();
       }
     });
+  }
+
+  startMarkingResultsPolling() {
+    // Clear any existing subscription
+    this.stopMarkingResultsPolling();
+
+    // Poll every 3 seconds for real-time updates
+    this.markingResultsSubscription = interval(3000).pipe(
+      startWith(0),
+      switchMap(() => {
+        const url = this.urlBuilder.buildUrl('/api/marking/results');
+        return this.api.get<{results: any[]}>(url);
+      })
+    ).subscribe({
+      next: (data) => {
+        if (data.results.length === 0) {
+          this.markingResults = [];
+          return;
+        }
+
+        // Group results by player and calculate totals, track marker
+        const playerScores: {[player: string]: {total: number, possible: number, markedBy: string}} = {};
+
+        data.results.forEach(result => {
+          if (!playerScores[result.markee_name]) {
+            playerScores[result.markee_name] = {total: 0, possible: 0, markedBy: result.marker_name};
+          }
+          playerScores[result.markee_name].possible += 1;
+          if (result.score !== null) {
+            playerScores[result.markee_name].total += parseFloat(result.score);
+          }
+        });
+
+        // Convert to array and sort by score
+        this.markingResults = Object.entries(playerScores)
+          .map(([player, scores]) => ({
+            player: player,
+            score: scores.total,
+            possible: scores.possible,
+            markedBy: scores.markedBy
+          }))
+          .sort((a, b) => b.score - a.score);
+      },
+      error: (err) => {
+        console.error('Error loading marking results', err);
+      }
+    });
+  }
+
+  stopMarkingResultsPolling() {
+    if (this.markingResultsSubscription) {
+      this.markingResultsSubscription.unsubscribe();
+      this.markingResultsSubscription = undefined;
+    }
+    this.markingResults = [];
   }
 
   // NEW: Load MC's own sessions
@@ -168,6 +234,15 @@ export class Mc implements OnInit, OnDestroy {
 
   deleteQuiz(quizId: number, event: Event) {
     event.stopPropagation();
+
+    // Find the quiz name for the confirmation message
+    const quiz = this.allQuizzes.find(q => q.id === quizId);
+    const quizName = quiz ? quiz.quiz_name : 'this quiz';
+
+    if (!confirm(`Are you sure you want to delete "${quizName}"? This action cannot be undone.`)) {
+      return;
+    }
+
     this.api.delete(`/api/quiz/${quizId}`)
       .subscribe(() => {
         this.loadCurrentQuiz();
@@ -205,7 +280,8 @@ export class Mc implements OnInit, OnDestroy {
       return;
     }
 
-    this.api.get<{players: string[]}>(`/api/players?session=${this.currentSessionCode}`)
+    const url = this.urlBuilder.buildUrl('/api/players');
+    this.api.get<{players: string[]}>(url)
       .subscribe({
         next: (data) => {
           this.players = data.players;
@@ -233,11 +309,17 @@ export class Mc implements OnInit, OnDestroy {
 
   // NEW METHOD: Remove individual player
   removePlayer(playerName: string) {
-    // NEW: Pass session parameter if managing a session
-    const url = this.currentSessionCode
-      ? `/api/player/remove/${playerName}?session=${this.currentSessionCode}`
-      : `/api/player/remove/${playerName}`;
+    // Session is now REQUIRED
+    if (!this.currentSessionCode) {
+      console.error('Cannot remove player: No session code');
+      return;
+    }
 
+    if (!confirm(`Remove "${playerName}" from the game?`)) {
+      return;
+    }
+
+    const url = this.urlBuilder.buildUrl(`/api/player/remove/${playerName}`);
     this.api.delete<{players: string[]}>(url)
       .subscribe({
         next: (data) => {
@@ -251,6 +333,10 @@ export class Mc implements OnInit, OnDestroy {
 
   // NEW METHOD: Clear all players
   resetGame() {
+    if (!confirm(`Remove ALL ${this.players.length} players from the game? This will clear the entire player list.`)) {
+      return;
+    }
+
     this.api.post('/api/reset', {})
       .subscribe({
         next: (data: any) => {
@@ -268,11 +354,13 @@ export class Mc implements OnInit, OnDestroy {
       return;
     }
 
-    // NEW: Include session parameter if managing a session
-    const url = this.currentSessionCode
-      ? `/api/game/toggle-status?session=${this.currentSessionCode}`
-      : '/api/game/toggle-status';
+    // Session is now REQUIRED
+    if (!this.currentSessionCode) {
+      console.error('Cannot toggle game status: No session code');
+      return;
+    }
 
+    const url = this.urlBuilder.buildUrl('/api/game/toggle-status');
     this.api.post<{quiz?: Quiz, session?: GameSession}>(url, {})
       .subscribe({
         next: (data) => {
@@ -299,12 +387,8 @@ export class Mc implements OnInit, OnDestroy {
 
   // Toggle between game mode and marking mode
   toggleGameAndMarking() {
-    const triggerUrl = this.currentSessionCode
-      ? `/api/marking/trigger-all-rounds?session=${this.currentSessionCode}`
-      : '/api/marking/trigger-all-rounds';
-    const toggleUrl = this.currentSessionCode
-      ? `/api/marking/toggle-mode?session=${this.currentSessionCode}`
-      : '/api/marking/toggle-mode';
+    const triggerUrl = this.urlBuilder.buildUrl('/api/marking/trigger-all-rounds');
+    const toggleUrl = this.urlBuilder.buildUrl('/api/marking/toggle-mode');
 
     if (!this.markingMode) {
       // Ending game and starting marking
@@ -343,10 +427,7 @@ export class Mc implements OnInit, OnDestroy {
   // Marking-related methods
   enableMarkingMode() {
     // Toggle marking mode
-    const url = this.currentSessionCode
-      ? `/api/marking/toggle-mode?session=${this.currentSessionCode}`
-      : '/api/marking/toggle-mode';
-
+    const url = this.urlBuilder.buildUrl('/api/marking/toggle-mode');
     this.api.post(url, {})
       .subscribe({
         next: (data: any) => {
@@ -360,10 +441,7 @@ export class Mc implements OnInit, OnDestroy {
 
   triggerMarking() {
     // Trigger marking for all rounds
-    const url = this.currentSessionCode
-      ? `/api/marking/trigger-all-rounds?session=${this.currentSessionCode}`
-      : '/api/marking/trigger-all-rounds';
-
+    const url = this.urlBuilder.buildUrl('/api/marking/trigger-all-rounds');
     this.api.post(url, {})
       .subscribe({
         next: () => {
@@ -371,71 +449,6 @@ export class Mc implements OnInit, OnDestroy {
         },
         error: (err) => {
           console.error('Error triggering rounds', err);
-        }
-      });
-  }
-
-  viewMarkingResults() {
-    const url = this.currentSessionCode
-      ? `/api/marking/results?session=${this.currentSessionCode}`
-      : '/api/marking/results';
-
-    this.api.get<{results: any[]}>(url)
-      .subscribe({
-        next: (data) => {
-          if (data.results.length === 0) {
-            this.markingResults = [];
-            this.showResults = true;
-            return;
-          }
-
-          // Group results by player and calculate totals, track marker
-          const playerScores: {[player: string]: {total: number, possible: number, markedBy: string}} = {};
-
-          data.results.forEach(result => {
-            if (!playerScores[result.markee_name]) {
-              playerScores[result.markee_name] = {total: 0, possible: 0, markedBy: result.marker_name};
-            }
-            playerScores[result.markee_name].possible += 1;
-            if (result.score !== null) {
-              playerScores[result.markee_name].total += parseFloat(result.score);
-            }
-          });
-
-          // Convert to array and sort by score
-          this.markingResults = Object.entries(playerScores)
-            .map(([player, scores]) => ({
-              player: player,
-              score: scores.total,
-              possible: scores.possible,
-              markedBy: scores.markedBy
-            }))
-            .sort((a, b) => b.score - a.score);
-
-          this.showResults = true;
-        },
-        error: (err) => {
-          console.error('Error loading marking results', err);
-        }
-      });
-  }
-
-  // Clear all marking data for the current quiz
-  clearMarkingData() {
-    const url = this.currentSessionCode
-      ? `/api/marking/clear?session=${this.currentSessionCode}`
-      : '/api/marking/clear';
-
-    this.api.post(url, {})
-      .subscribe({
-        next: (data: any) => {
-          this.markingResults = [];
-          this.showResults = false;
-          this.markingMode = false;
-          console.log('Marking data cleared');
-        },
-        error: (err) => {
-          console.error('Error clearing marking data', err);
         }
       });
   }
@@ -550,6 +563,10 @@ export class Mc implements OnInit, OnDestroy {
 
 
   endSession(sessionCode: string) {
+    if (!confirm(`End session "${sessionCode}"? This will close the session for all players. This action cannot be undone.`)) {
+      return;
+    }
+
     this.api.post(`/api/sessions/${sessionCode}/end`, {})
       .subscribe({
         next: () => {
@@ -567,5 +584,6 @@ export class Mc implements OnInit, OnDestroy {
     if (this.gameStatusSubscription) {
       this.gameStatusSubscription.unsubscribe();
     }
+    this.stopMarkingResultsPolling();
   }
 }

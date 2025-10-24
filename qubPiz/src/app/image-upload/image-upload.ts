@@ -78,4 +78,8 @@ export class ImageUpload {
     this.previewUrl = null;
     this.uploadError = null;
   }
+
+  getImageUrl(path: string): string {
+    return `${this.api.apiBaseUrl}${path}`;
+  }
 }

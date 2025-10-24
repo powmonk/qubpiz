@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
-import { BehaviorSubject, interval, Subscription } from 'rxjs';
+import { BehaviorSubject, interval, Subscription, of } from 'rxjs';
 import { switchMap, tap, shareReplay } from 'rxjs/operators';
 import { ApiService } from './api.service';
 import { GameStatus } from './shared/types';
@@ -94,11 +94,28 @@ export class GameStatusService {
     // Fetch immediately first, then poll every 3 seconds
     // Using shareReplay to ensure multiple subscribers don't trigger multiple HTTP requests
     const fetchStatus = () => {
-      // NEW: Include session parameter if present
+      // Session is now REQUIRED
       const sessionCode = this.getCurrentSession();
-      const url = sessionCode
-        ? `/api/game/status?session=${sessionCode}`
-        : '/api/game/status';
+      if (!sessionCode) {
+        // Return empty game status if no session
+        const emptyStatus: GameStatus = {
+          active: false,
+          status: 'waiting',
+          current_round_id: null,
+          current_round_type: null,
+          current_round_name: null,
+          marking_mode: false
+        };
+        return of(emptyStatus).pipe(
+          tap(data => {
+            this.gameStatus$.next(data);
+            this.handleRedirection(data);
+          }),
+          shareReplay(1)
+        );
+      }
+
+      const url = `/api/game/status?session=${sessionCode}`;
 
       return this.api.get<GameStatus>(url).pipe(
         tap(data => {
@@ -157,6 +174,8 @@ export class GameStatusService {
         let routePath: string;
         if (data.current_round_type === 'picture' || data.current_round_type === 'image') {
           routePath = '/round/picture';
+        } else if (data.current_round_type === 'music') {
+          routePath = '/round/music';
         } else {
           routePath = '/round/question';
         }
@@ -173,6 +192,8 @@ export class GameStatusService {
 
       if (data.current_round_type === 'picture' || data.current_round_type === 'image') {
         routePath = '/round/picture';
+      } else if (data.current_round_type === 'music') {
+        routePath = '/round/music';
       } else {
         routePath = '/round/question';
       }

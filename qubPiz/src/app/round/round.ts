@@ -2,10 +2,11 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule, TitleCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
-import { Subscription, interval, Subject } from 'rxjs';
+import { Subscription, interval, Subject, BehaviorSubject, of } from 'rxjs';
 import { switchMap, startWith, debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { GameStatusService } from '../game-status-service';
 import { ApiService } from '../api.service';
+import { UrlBuilderService } from '../url-builder.service';
 import { PlayerQuestion, RoundDisplayData, GridItem } from '../shared/types';
 
 @Component({
@@ -16,7 +17,7 @@ import { PlayerQuestion, RoundDisplayData, GridItem } from '../shared/types';
   styleUrl: './round.css'
 })
 export class RoundComponent implements OnInit, OnDestroy {
-  roundType: 'picture' | 'question' = 'question';
+  roundType: 'picture' | 'question' | 'music' = 'question';
 
   currentRound: RoundDisplayData['round'] = null;
   questions: PlayerQuestion[] = [];
@@ -32,7 +33,8 @@ export class RoundComponent implements OnInit, OnDestroy {
     private api: ApiService,
     private router: Router,
     private route: ActivatedRoute,
-    private gameStatusService: GameStatusService
+    private gameStatusService: GameStatusService,
+    private urlBuilder: UrlBuilderService
   ) {}
 
   // Get main question text (picture rounds - shared across all images)
@@ -57,6 +59,10 @@ export class RoundComponent implements OnInit, OnDestroy {
 
   get isPictureRound(): boolean {
     return this.roundType === 'picture';
+  }
+
+  get isMusicRound(): boolean {
+    return this.roundType === 'music';
   }
 
   ngOnInit() {
@@ -94,11 +100,13 @@ export class RoundComponent implements OnInit, OnDestroy {
     this.pollSubscription = interval(2000).pipe(
       startWith(0),
       switchMap(() => {
-        // Get session from game status service
+        // Session is now REQUIRED
         const session = this.gameStatusService.getCurrentSession();
-        const url = session
-          ? `/api/game/display-data?session=${session}`
-          : `/api/game/display-data`;
+        if (!session) {
+          // Return empty display data if no session
+          return of<RoundDisplayData>({ round: null, questions: [] });
+        }
+        const url = this.urlBuilder.buildUrl('/api/game/display-data');
         return this.api.get<RoundDisplayData>(url);
       })
     ).subscribe(data => {
@@ -113,10 +121,12 @@ export class RoundComponent implements OnInit, OnDestroy {
 
       // Check if round type matches expected type
       // Note: 'text' and 'question' are treated as the same type
-      const isQuestionRound = data.round?.round_type === 'question' || data.round?.round_type === 'text';
+      const isQuestionRound = data.round?.round_type === 'question' || data.round?.round_type === 'text' || data.round?.round_type === 'multiple_choice';
       const isPictureRound = data.round?.round_type === 'picture' || data.round?.round_type === 'image';
+      const isMusicRound = data.round?.round_type === 'music';
       const expectedQuestion = this.roundType === 'question';
       const expectedPicture = this.roundType === 'picture';
+      const expectedMusic = this.roundType === 'music';
 
       // If no round data, just wait - don't redirect
       // This prevents lobby flashing when MC switches rounds
@@ -126,8 +136,10 @@ export class RoundComponent implements OnInit, OnDestroy {
 
       // If wrong round type, redirect DIRECTLY to correct round page
       // This prevents lobby flashing when switching between round types
-      if ((expectedQuestion && !isQuestionRound) || (expectedPicture && !isPictureRound)) {
-        const correctPath = isPictureRound ? '/round/picture' : '/round/question';
+      if ((expectedQuestion && !isQuestionRound) || (expectedPicture && !isPictureRound) || (expectedMusic && !isMusicRound)) {
+        let correctPath = '/round/question';
+        if (isPictureRound) correctPath = '/round/picture';
+        else if (isMusicRound) correctPath = '/round/music';
         this.router.navigate([correctPath], { replaceUrl: true });
         return;
       }
@@ -139,7 +151,7 @@ export class RoundComponent implements OnInit, OnDestroy {
         // Save all current answers immediately before switching rounds
         this.saveAllPendingAnswers();
         this.currentRound = data.round;
-        this.questions = data.questions;
+        this.questions = data.questions as PlayerQuestion[];
         this.playerAnswers = {}; // Clear answers when round changes
         if (this.currentRound) {
           this.loadPlayerAnswers();
@@ -147,7 +159,7 @@ export class RoundComponent implements OnInit, OnDestroy {
       } else if (!this.currentRound) {
         // First load
         this.currentRound = data.round;
-        this.questions = data.questions;
+        this.questions = data.questions as PlayerQuestion[];
         this.playerAnswers = {}; // Clear answers on first load
         this.loadPlayerAnswers();
       }
@@ -161,11 +173,7 @@ export class RoundComponent implements OnInit, OnDestroy {
   loadPlayerAnswers() {
     if (!this.currentRound || !this.playerName) return;
 
-    const sessionCode = this.gameStatusService.getCurrentSession();
-    const url = sessionCode
-      ? `/api/answers/${this.playerName}/${this.currentRound.id}?session=${sessionCode}`
-      : `/api/answers/${this.playerName}/${this.currentRound.id}`;
-
+    const url = this.urlBuilder.buildUrl(`/api/answers/${this.playerName}/${this.currentRound.id}`);
     this.api.get<{ answers: { [key: string]: string } }>(url).subscribe({
       next: (data) => {
         this.playerAnswers = {};
@@ -191,11 +199,7 @@ export class RoundComponent implements OnInit, OnDestroy {
     if (!answerText.trim()) return;
     if (!this.currentRound) return;
 
-    const sessionCode = this.gameStatusService.getCurrentSession();
-    const url = sessionCode
-      ? `/api/answers/submit?session=${sessionCode}`
-      : '/api/answers/submit';
-
+    const url = this.urlBuilder.buildUrl('/api/answers/submit');
     this.api.post(url, {
       player_name: this.playerName,
       question_id: questionId,

@@ -1,11 +1,11 @@
-<div *ngIf="currentRound" class="display-container" [class.picture-display]="isPictureRound" [class.question-display]="!isPictureRound">
+<div *ngIf="currentRound" class="display-container" [class.picture-display]="isPictureRound || isMusicRound" [class.question-display]="!isPictureRound && !isMusicRound">
 
   <header>
     <h1>{{ currentRound.name }}</h1>
     <p class="round-type-info">({{ currentRound.round_type | titlecase }} Round)</p>
 
-    <!-- Main question text for picture rounds -->
-    <p class="main-question" *ngIf="isPictureRound && mainQuestionText">{{ mainQuestionText }}</p>
+    <!-- Main question text for picture/music rounds -->
+    <p class="main-question" *ngIf="(isPictureRound || isMusicRound) && mainQuestionText">{{ mainQuestionText }}</p>
 
     <p class="player-name-display">Playing as: <strong>{{ playerName }}</strong></p>
   </header>
@@ -40,8 +40,38 @@
     </div>
   </div>
 
+  <!-- Music Round Grid -->
+  <div *ngIf="isMusicRound" class="questions-grid">
+    <div *ngFor="let item of paddedQuestions; trackBy: trackByItem"
+         class="question-card"
+         [class.blank-tile]="item.isBlank">
+
+      <!-- Only show content for real questions, not blank tiles -->
+      <ng-container *ngIf="!item.isBlank">
+        <div class="question-number">
+          {{ item.question!.question_order }}
+        </div>
+
+        <div *ngIf="item.question!.audio_url" class="audio-player-wrapper">
+          <audio [src]="getImageUrl(item.question!.audio_url)" controls class="audio-player"></audio>
+        </div>
+
+        <div class="answer-section">
+          <input
+            type="text"
+            [(ngModel)]="playerAnswers[item.question!.id]"
+            (ngModelChange)="onAnswerChange(item.question!.id)"
+            placeholder="Your answer..."
+            class="answer-input"
+          />
+        </div>
+      </ng-container>
+
+    </div>
+  </div>
+
   <!-- Question Round List -->
-  <div *ngIf="!isPictureRound" class="questions-grid">
+  <div *ngIf="!isPictureRound && !isMusicRound" class="questions-grid">
     <div *ngFor="let question of questions; trackBy: trackByQuestionId" class="question-card">
 
       <div class="question-content">
@@ -53,7 +83,22 @@
         <img [src]="getImageUrl(question.image_url)" alt="Question Image">
       </div>
 
-      <div class="answer-section">
+      <!-- Multiple Choice: Radio buttons -->
+      <div *ngIf="question.options && question.options.length > 0" class="answer-section mc-options">
+        <label *ngFor="let option of question.options; let i = index" class="mc-option-label">
+          <input
+            type="radio"
+            [name]="'question-' + question.id"
+            [value]="option"
+            [(ngModel)]="playerAnswers[question.id]"
+            (ngModelChange)="onAnswerChange(question.id)"
+          />
+          <span class="option-text">{{ option }}</span>
+        </label>
+      </div>
+
+      <!-- Text Input: For non-multiple choice -->
+      <div *ngIf="!question.options || question.options.length === 0" class="answer-section">
         <input
           type="text"
           [(ngModel)]="playerAnswers[question.id]"

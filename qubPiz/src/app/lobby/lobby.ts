@@ -4,6 +4,7 @@ import { Router, ActivatedRoute } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { GameStatusService } from '../game-status-service';
 import { ApiService } from '../api.service';
+import { UrlBuilderService } from '../url-builder.service';
 import { Subscription } from 'rxjs';
 
 @Component({
@@ -33,7 +34,8 @@ export class Lobby implements OnInit, OnDestroy {
     private router: Router,
     private route: ActivatedRoute,
     private api: ApiService,
-    private gameStatusService: GameStatusService
+    private gameStatusService: GameStatusService,
+    private urlBuilder: UrlBuilderService
   ) {}
 
   ngOnInit() {
@@ -97,11 +99,7 @@ export class Lobby implements OnInit, OnDestroy {
     const existingPlayer = this.gameStatusService.getCurrentPlayer();
     if (existingPlayer) {
       // Verify the player still exists on the server
-      // NEW: Pass session parameter if present
-      const url = this.sessionCode
-        ? `/api/players?session=${this.sessionCode}`
-        : '/api/players';
-
+      const url = this.urlBuilder.buildUrl('/api/players');
       this.api.get<{players: string[]}>(url)
         .subscribe(data => {
           if (data.players.includes(existingPlayer)) {
@@ -144,11 +142,7 @@ export class Lobby implements OnInit, OnDestroy {
   }
 
   loadPlayers() {
-    // NEW: Pass session parameter if present
-    const url = this.sessionCode
-      ? `/api/players?session=${this.sessionCode}`
-      : '/api/players';
-
+    const url = this.urlBuilder.buildUrl('/api/players');
     this.api.get<{players: string[]}>(url)
       .subscribe(data => {
         this.players = data.players;
@@ -156,11 +150,7 @@ export class Lobby implements OnInit, OnDestroy {
   }
 
   onSubmit() {
-    // NEW: Pass session parameter if present
-    const url = this.sessionCode
-      ? `/api/join?session=${this.sessionCode}`
-      : '/api/join';
-
+    const url = this.urlBuilder.buildUrl('/api/join');
     this.api.post(url, { name: this.playerName })
       .subscribe(() => {
         // Store player name in the service (and localStorage)

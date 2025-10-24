@@ -164,37 +164,27 @@
         {{ markingMode ? 'Exit Marking Mode' : 'Enter Marking Mode' }}
       </button>
 
-      <div *ngIf="markingMode" class="marking-controls">
-        <p class="info-message">Marking mode is active. Players are marking each other's answers.</p>
-        <button (click)="viewMarkingResults()" class="secondary-btn">
-          View Marking Results
-        </button>
-        <button (click)="clearMarkingData()" class="danger-btn">
-          Clear Marking Data
-        </button>
-      </div>
-
-      <!-- Marking Results -->
-      <div *ngIf="showResults" class="results-panel">
-        <h4>Marking Results</h4>
+      <!-- Marking Results (Real-time) -->
+      <div *ngIf="markingMode" class="marking-results">
+        <h4>Live Results</h4>
         <div *ngIf="markingResults.length === 0" class="no-content">
-          No marking results yet.
+          <p>No marking results yet. Results will appear here as players complete their marking.</p>
         </div>
-        <table *ngIf="markingResults.length > 0">
+        <table *ngIf="markingResults.length > 0" class="data-table">
           <thead>
             <tr>
+              <th>Rank</th>
               <th>Player</th>
               <th>Score</th>
-              <th>Possible</th>
               <th>Marked By</th>
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let result of markingResults">
-              <td>{{ result.player }}</td>
-              <td>{{ result.score }}</td>
-              <td>{{ result.possible }}</td>
-              <td>{{ result.markedBy }}</td>
+            <tr *ngFor="let result of markingResults; let i = index" [class.odd]="i % 2 === 1">
+              <td class="rank-cell">{{ i + 1 }}</td>
+              <td class="player-name">{{ result.player }}</td>
+              <td class="score-cell">{{ result.score }} / {{ result.possible }}</td>
+              <td class="marker-name">{{ result.markedBy }}</td>
             </tr>
           </tbody>
         </table>

@@ -28,38 +28,104 @@
   <!-- IMAGE ROUND: One question, multiple images -->
   <div *ngIf="isImageRound" class="question-form">
     <h4>Picture Round Setup</h4>
-    
+
     <label>Main Question (applies to all pictures)</label>
-    <input 
+    <input
       type="text"
-      [(ngModel)]="imageRoundQuestion" 
+      [(ngModel)]="imageRoundQuestion"
       placeholder="e.g., 'Name these celebrities' or 'Identify these landmarks'"
     />
 
     <div class="image-item-form">
       <h5>Add Picture</h5>
-      
+
       <label>Upload Image</label>
       <app-image-upload (imageUploaded)="onImageUploaded($event)"></app-image-upload>
-      
+
       <label>Answer for this image</label>
-      <input 
+      <input
         type="text"
-        [(ngModel)]="newImageItem.answer" 
+        [(ngModel)]="newImageItem.answer"
         placeholder="Enter the answer"
       />
-      
+
       <button (click)="addImageItem()" class="add-btn">Add Picture</button>
     </div>
+  </div>
+
+  <!-- MUSIC ROUND: One question, multiple audio files -->
+  <div *ngIf="isMusicRound" class="question-form">
+    <h4>Music Round Setup</h4>
+
+    <label>Main Question (applies to all audio files)</label>
+    <input
+      type="text"
+      [(ngModel)]="musicRoundQuestion"
+      placeholder="e.g., 'Name these songs' or 'Identify these artists'"
+    />
+
+    <div class="image-item-form">
+      <h5>Add Audio</h5>
+
+      <label>Upload Audio File</label>
+      <app-audio-upload (audioUploaded)="onAudioUploaded($event)"></app-audio-upload>
+
+      <label>Answer for this audio</label>
+      <input
+        type="text"
+        [(ngModel)]="newMusicItem.answer"
+        placeholder="Enter the answer"
+      />
+
+      <button (click)="addMusicItem()" class="add-btn">Add Audio</button>
+    </div>
+  </div>
+
+  <!-- MULTIPLE CHOICE ROUND: Question with 3 options -->
+  <div *ngIf="isMultipleChoiceRound" class="question-form">
+    <h4>Add Multiple Choice Question</h4>
+
+    <label>Question Text</label>
+    <input
+      type="text"
+      [(ngModel)]="newMultipleChoice.text"
+      placeholder="Enter the question"
+    />
+
+    <label>Correct Answer (Option 1)</label>
+    <input
+      type="text"
+      [(ngModel)]="newMultipleChoice.correctAnswer"
+      placeholder="Enter the correct answer"
+      class="correct-answer-input"
+    />
+
+    <label>Wrong Answer 2</label>
+    <input
+      type="text"
+      [(ngModel)]="newMultipleChoice.wrongAnswer1"
+      placeholder="Enter wrong answer"
+    />
+
+    <label>Wrong Answer 3</label>
+    <input
+      type="text"
+      [(ngModel)]="newMultipleChoice.wrongAnswer2"
+      placeholder="Enter wrong answer"
+    />
+
+    <button (click)="saveMultipleChoice()" class="add-btn">Add Question</button>
   </div>
 
   <!-- Display Existing Questions -->
   <div class="questions-list">
     <h4 *ngIf="isTextRound">Questions ({{ questions.length }})</h4>
     <h4 *ngIf="isImageRound">Pictures ({{ questions.length }})</h4>
-    
+    <h4 *ngIf="isMusicRound">Audio Files ({{ questions.length }})</h4>
+    <h4 *ngIf="isMultipleChoiceRound">Questions ({{ questions.length }})</h4>
+
     <div *ngIf="questions.length === 0" class="no-questions">
-      No {{ isImageRound ? 'pictures' : 'questions' }} added yet.
+      No {{ isImageRound ? 'pictures' : isMusicRound ? 'audio files' : 'questions' }} added yet.
     </div>
 
     <!-- TEXT ROUND DISPLAY -->
@@ -81,7 +147,7 @@
       <div class="image-round-question">
         <strong>Question:</strong> {{ questions[0]?.question_text || 'Not set yet' }}
       </div>
-      
+
       <div class="image-grid">
         <div *ngFor="let q of questions; let i = index" class="image-item">
           <div class="image-number">{{ i + 1 }}</div>
@@ -91,6 +157,46 @@
             alt="Question image"
           />
           <p class="image-answer"><strong>A:</strong> {{ q.answer }}</p>
+          <button (click)="deleteQuestion(q.id)" class="delete-btn-small">×</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MUSIC ROUND DISPLAY -->
+    <div *ngIf="isMusicRound">
+      <div class="image-round-question">
+        <strong>Question:</strong> {{ questions[0]?.question_text || 'Not set yet' }}
+      </div>
+
+      <div class="image-grid">
+        <div *ngFor="let q of questions; let i = index" class="image-item">
+          <div class="image-number">{{ i + 1 }}</div>
+          <audio
+            [src]="getAudioUrl(q.audio_url)"
+            controls
+            class="audio-player-mc"
+          ></audio>
+          <p class="image-answer"><strong>A:</strong> {{ q.answer }}</p>
+          <button (click)="deleteQuestion(q.id)" class="delete-btn-small">×</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MULTIPLE CHOICE ROUND DISPLAY -->
+    <div *ngIf="isMultipleChoiceRound">
+      <div *ngFor="let q of questions; let i = index" class="question-item">
+        <div class="question-number">Q{{ i + 1 }}</div>
+        <div class="question-content">
+          <p class="question-text"><strong>Q:</strong> {{ q.question_text }}</p>
+          <div class="mc-options">
+            <div *ngFor="let opt of q.options; let optIndex = index" class="mc-option">
+              <span [class.correct-option]="opt.option_order === 0">
+                {{ optIndex === 0 ? '✓' : '' }} {{ opt.option_text }}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="question-actions">
           <button (click)="deleteQuestion(q.id)" class="delete-btn-small">×</button>
         </div>
       </div>
