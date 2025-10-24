@@ -45,9 +45,19 @@ export class Mc implements OnInit, OnDestroy {
   selectedSession: GameSession | null = null;
   currentRoundId: number | null = null; // Track current round from game status
 
+  // Authentication properties
+  isLoggedIn: boolean = false;
+  showRegisterForm: boolean = false;
+  loginUsername: string = '';
+  loginPassword: string = '';
+  confirmPassword: string = '';
+  currentUser: { id: number; username: string } | null = null;
+  loginError: string = '';
+
   private gameStatusSubscription?: Subscription;
   private markingResultsSubscription?: Subscription;
   private readonly OWNER_ID_KEY = 'qubpiz_mc_owner_id';
+  private readonly USER_KEY = 'qubpiz_mc_user';
 
   constructor(
     private api: ApiService,
@@ -96,9 +106,15 @@ export class Mc implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    // Load MC's sessions and quizzes
-    this.loadMySessions();
-    this.loadAllQuizzes();
+    // Check if user is already logged in
+    this.checkLoginStatus();
+
+    // Only load data if logged in
+    if (this.isLoggedIn) {
+      // Load MC's sessions and quizzes
+      this.loadMySessions();
+      this.loadAllQuizzes();
+    }
 
     // Subscribe to game status updates from the service instead of polling directly
     this.gameStatusSubscription = this.gameStatusService.gameStatus$.subscribe(data => {
@@ -119,6 +135,123 @@ export class Mc implements OnInit, OnDestroy {
       // Load players when in a session
       if (this.currentSessionCode) {
         this.loadPlayersForSession();
+      }
+    });
+  }
+
+  checkLoginStatus() {
+    if (typeof localStorage !== 'undefined') {
+      const userJson = localStorage.getItem(this.USER_KEY);
+      if (userJson) {
+        this.currentUser = JSON.parse(userJson);
+        this.isLoggedIn = true;
+      }
+    }
+  }
+
+  login() {
+    this.loginError = '';
+
+    if (!this.loginUsername.trim() || !this.loginPassword.trim()) {
+      this.loginError = 'Username and password required';
+      return;
+    }
+
+    this.api.post<{success: boolean, user: {id: number, username: string}}>('/api/mc/login', {
+      username: this.loginUsername,
+      password: this.loginPassword
+    }).subscribe({
+      next: (data) => {
+        this.currentUser = data.user;
+        this.isLoggedIn = true;
+        this.loginPassword = '';
+
+        // Store in localStorage
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(this.USER_KEY, JSON.stringify(data.user));
+        }
+
+        // Load data after login
+        this.loadMySessions();
+        this.loadAllQuizzes();
+      },
+      error: (err) => {
+        this.loginError = err.error?.error || 'Login failed';
+        this.loginPassword = '';
+      }
+    });
+  }
+
+  logout() {
+    this.isLoggedIn = false;
+    this.currentUser = null;
+    this.loginUsername = '';
+    this.loginPassword = '';
+    this.confirmPassword = '';
+    this.loginError = '';
+    this.allQuizzes = [];
+    this.currentQuiz = null;
+    this.showRegisterForm = false;
+
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(this.USER_KEY);
+    }
+  }
+
+  toggleRegisterForm() {
+    this.showRegisterForm = !this.showRegisterForm;
+    this.loginError = '';
+    this.loginPassword = '';
+    this.confirmPassword = '';
+  }
+
+  register() {
+    this.loginError = '';
+
+    if (!this.loginUsername.trim() || !this.loginPassword.trim()) {
+      this.loginError = 'Username and password required';
+      return;
+    }
+
+    if (this.loginUsername.length < 3) {
+      this.loginError = 'Username must be at least 3 characters';
+      return;
+    }
+
+    if (this.loginPassword.length < 6) {
+      this.loginError = 'Password must be at least 6 characters';
+      return;
+    }
+
+    if (this.loginPassword !== this.confirmPassword) {
+      this.loginError = 'Passwords do not match';
+      return;
+    }
+
+    this.api.post<{success: boolean, user: {id: number, username: string}}>('/api/mc/register', {
+      username: this.loginUsername,
+      password: this.loginPassword
+    }).subscribe({
+      next: (data) => {
+        this.currentUser = data.user;
+        this.isLoggedIn = true;
+        this.loginPassword = '';
+        this.confirmPassword = '';
+        this.showRegisterForm = false;
+
+        // Store in localStorage
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(this.USER_KEY, JSON.stringify(data.user));
+        }
+
+        // Load data after registration
+        this.loadMySessions();
+        this.loadAllQuizzes();
+      },
+      error: (err) => {
+        this.loginError = err.error?.error || 'Registration failed';
+        this.loginPassword = '';
+        this.confirmPassword = '';
       }
     });
   }
@@ -200,20 +333,23 @@ export class Mc implements OnInit, OnDestroy {
   }
 
   loadAllQuizzes() {
-    this.api.get<{quizzes: Quiz[]}>('/api/quizzes')
+    if (!this.currentUser) return;
+
+    this.api.get<{quizzes: Quiz[]}>(`/api/quizzes?user_id=${this.currentUser.id}&username=${this.currentUser.username}`)
       .subscribe(data => {
         this.allQuizzes = data.quizzes;
       });
   }
 
   createQuiz() {
-    if (!this.newQuizName.trim()) {
+    if (!this.newQuizName.trim() || !this.currentUser) {
       return;
     }
 
     this.api.post('/api/quiz/create', {
       quiz_name: this.newQuizName,
-      quiz_date: this.newQuizDate
+      quiz_date: this.newQuizDate,
+      user_id: this.currentUser.id
     }).subscribe(() => {
       this.loadCurrentQuiz();
       this.loadAllQuizzes();

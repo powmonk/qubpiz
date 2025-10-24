@@ -11,7 +11,7 @@ export class ApiService {
   constructor(private http: HttpClient) {
     // Determine base URL based on environment
     if (typeof window === 'undefined') {
-      this.baseUrl = 'http://localhost:3000';
+      this.baseUrl = '';
     } else {
       const hostname = window.location.hostname;
 
@@ -20,9 +20,9 @@ export class ApiService {
         const baseHost = hostname.replace('-4200.app.github.dev', '');
         this.baseUrl = `${window.location.protocol}//${baseHost}-3000.app.github.dev`;
       }
-      // Local development
+      // Local development - use relative URLs (proxy handles routing to port 3000)
       else if (hostname === 'localhost') {
-        this.baseUrl = 'http://localhost:3000';
+        this.baseUrl = '';
       }
       // Production - use relative URLs (same origin via Nginx proxy)
       else {
