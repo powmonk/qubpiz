@@ -61,16 +61,27 @@
         <div *ngIf="allQuizzes.length === 0" class="no-content">
           No quizzes created yet. Create one to start a session!
         </div>
-        <div class="quiz-cards">
-          <div *ngFor="let quiz of allQuizzes"
-               (click)="createGameSessionFromQuiz(quiz)"
-               class="quiz-card">
-            <strong>{{ quiz.quiz_name }}</strong>
-            <span class="quiz-date">{{ quiz.quiz_date | date:'mediumDate' }}</span>
-            <button (click)="renameQuiz(quiz.id, $event)" class="edit-btn-small" title="Rename quiz">✎</button>
-            <button (click)="deleteQuiz(quiz.id, $event)" class="delete-btn-small">×</button>
-          </div>
-        </div>
+        <table *ngIf="allQuizzes.length > 0" class="quiz-table">
+          <thead>
+            <tr>
+              <th>Quiz Name</th>
+              <th>Date</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let quiz of allQuizzes; let i = index"
+                (click)="createGameSessionFromQuiz(quiz)"
+                [class.odd]="i % 2 === 1">
+              <td class="quiz-name">{{ quiz.quiz_name }}</td>
+              <td class="quiz-date">{{ quiz.quiz_date | date:'mediumDate' }}</td>
+              <td class="quiz-actions">
+                <button (click)="renameQuiz(quiz.id, $event)" class="edit-btn-small" title="Rename quiz">✎</button>
+                <button (click)="deleteQuiz(quiz.id, $event)" class="delete-btn-small">×</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       <!-- Archived Quiz List -->

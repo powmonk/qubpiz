@@ -145,6 +145,69 @@
     margin-top: var(--spacing-xs);
 }
 
+/* Quiz Table Styles */
+.quiz-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: var(--spacing-md);
+    background-color: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.quiz-table thead {
+    background-color: var(--bg-primary);
+}
+
+.quiz-table th {
+    text-align: left;
+    padding: var(--spacing-md);
+    font-weight: 600;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.quiz-table th:last-child {
+    text-align: right;
+}
+
+.quiz-table tbody tr {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.quiz-table tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.quiz-table tbody tr.odd {
+    background-color: rgba(0, 0, 0, 0.2);
+}
+
+.quiz-table tbody tr.odd:hover {
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+.quiz-table td {
+    padding: var(--spacing-md);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.quiz-table .quiz-name {
+    font-weight: 500;
+}
+
+.quiz-table .quiz-date {
+    color: var(--text-secondary);
+    display: table-cell;
+    margin-top: 0;
+}
+
+.quiz-table .quiz-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    justify-content: flex-end;
+}
+
 .session-card {
     cursor: default;
 }
