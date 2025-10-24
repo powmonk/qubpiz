@@ -165,6 +165,28 @@ export class QuestionManager implements OnInit, OnChanges {
     });
   }
 
+  renameQuestion(question: Question) {
+    const newText = prompt('Enter new question text:', question.question_text);
+    if (!newText || newText.trim() === '' || newText === question.question_text) {
+      return;
+    }
+
+    this.api.put(`/api/questions/${question.id}`, {
+      question_text: newText.trim(),
+      answer: question.answer,
+      image_url: question.image_url,
+      audio_url: question.audio_url
+    }).subscribe({
+      next: () => {
+        this.loadQuestions();
+        console.log('Question renamed successfully');
+      },
+      error: (err) => {
+        console.error('Error renaming question:', err);
+      }
+    });
+  }
+
   deleteQuestion(questionId: number) {
     if (confirm('Delete this question?')) {
       this.api.delete(`/api/questions/${questionId}`)

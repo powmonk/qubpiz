@@ -175,6 +175,27 @@ button:disabled {
   background-color: var(--color-danger-hover);
 }
 
+.edit-btn-small {
+  background-color: var(--color-info);
+  color: white;
+  border: none;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-circle);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 5px;
+}
+
+.edit-btn-small:hover {
+  background-color: #138496;
+}
+
 /* File button */
 .file-button {
   display: inline-block;

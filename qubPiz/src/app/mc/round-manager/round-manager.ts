@@ -71,6 +71,28 @@ export class RoundManager implements OnInit, OnChanges {
     });
   }
 
+  renameRound(round: Round, event: Event) {
+    event.stopPropagation();
+
+    const newName = prompt('Enter new round name:', round.name);
+    if (!newName || newName.trim() === '' || newName === round.name) {
+      return;
+    }
+
+    this.api.put(`/api/rounds/${round.id}`, {
+      name: newName.trim(),
+      round_type: round.round_type
+    }).subscribe({
+      next: () => {
+        this.loadRounds();
+        console.log('Round renamed successfully');
+      },
+      error: (err) => {
+        console.error('Error renaming round:', err);
+      }
+    });
+  }
+
   deleteRound(roundId: number, event: Event) {
     event.stopPropagation();
     if (confirm('Delete this round and all its questions?')) {

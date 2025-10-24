@@ -31,6 +31,7 @@
                class="quiz-card">
             <strong>{{ quiz.quiz_name }}</strong>
             <span class="quiz-date">{{ quiz.quiz_date | date:'mediumDate' }}</span>
+            <button (click)="renameQuiz(quiz.id, $event)" class="edit-btn-small" title="Rename quiz">✎</button>
             <button (click)="deleteQuiz(quiz.id, $event)" class="delete-btn-small">×</button>
           </div>
         </div>

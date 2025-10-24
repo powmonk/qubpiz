@@ -52,6 +52,9 @@
                 </td>
 
                 <td class="action-cell">
+                    <button (click)="renameRound(round, $event); $event.stopPropagation()"
+                            class="edit-btn-small"
+                            title="Rename round">✎</button>
                     <button (click)="deleteRound(round.id, $event); $event.stopPropagation()"
                             class="delete-btn-small"
                             title="Delete round">×</button>

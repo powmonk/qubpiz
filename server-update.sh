@@ -2,6 +2,12 @@
 
 # QubPiz Server Update Script
 # Run this directly on your DigitalOcean server to pull latest code from GitHub
+#
+# This script:
+# - Pulls latest code from GitHub
+# - Rebuilds the Angular frontend
+# - Restarts the backend Node.js app
+# - Does NOT touch nginx configuration (SSL-safe!)
 
 set -e  # Exit on any error
 
@@ -73,133 +79,9 @@ npm install
 npm run build
 print_success "Frontend built successfully"
 
-# Update Nginx configuration (preserving SSL if it exists)
-print_info "Checking Nginx configuration..."
-
-# Check if SSL is already configured
-if [ -f /etc/letsencrypt/live/qubpiz.com/fullchain.pem ]; then
-    print_info "SSL certificate detected - updating with HTTPS configuration..."
-    sudo tee /etc/nginx/sites-available/qubpiz > /dev/null <<'NGINX_EOF'
-# HTTP server - redirect to HTTPS
-server {
-    listen 80;
-    listen [::]:80;
-    server_name qubpiz.com www.qubpiz.com;
-
-    # Let's Encrypt verification
-    location ^~ /.well-known/acme-challenge/ {
-        root /var/www/letsencrypt;
-        default_type "text/plain";
-        allow all;
-    }
-
-    # Redirect all other traffic to HTTPS
-    location / {
-        return 301 https://$server_name$request_uri;
-    }
-}
-
-# HTTPS server
-server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name qubpiz.com www.qubpiz.com;
-
-    # SSL certificate configuration
-    ssl_certificate /etc/letsencrypt/live/qubpiz.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/qubpiz.com/privkey.pem;
-
-    # SSL security settings
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_prefer_server_ciphers on;
-    ssl_ciphers 'ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384';
-    ssl_session_cache shared:SSL:10m;
-    ssl_session_timeout 10m;
-
-    # Enable gzip compression
-    gzip on;
-    gzip_vary on;
-    gzip_proxied any;
-    gzip_comp_level 6;
-    gzip_types text/plain text/css text/xml text/javascript application/json application/javascript application/xml+rss application/rss+xml;
-    gzip_min_length 1000;
-
-    # Serve Angular app
-    location / {
-        root /var/www/qubpiz/qubPiz/dist/qubPiz/browser;
-        try_files $uri $uri/ /index.html;
-    }
-
-    # Proxy API requests to Express
-    location /api {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    # Serve uploaded images
-    location /uploads {
-        alias /var/www/qubpiz/qubPiz/server/uploads;
-    }
-}
-NGINX_EOF
-    print_success "Nginx configuration updated with SSL preserved"
-else
-    print_info "No SSL certificate detected - using HTTP configuration..."
-    sudo tee /etc/nginx/sites-available/qubpiz > /dev/null <<'NGINX_EOF'
-server {
-    listen 80;
-    server_name qubpiz.com www.qubpiz.com _;
-
-    # Enable gzip compression
-    gzip on;
-    gzip_vary on;
-    gzip_proxied any;
-    gzip_comp_level 6;
-    gzip_types text/plain text/css text/xml text/javascript application/json application/javascript application/xml+rss application/rss+xml;
-    gzip_min_length 1000;
-
-    # Let's Encrypt verification (must be before / location)
-    location ^~ /.well-known/acme-challenge/ {
-        root /var/www/letsencrypt;
-        default_type "text/plain";
-        allow all;
-    }
-
-    # Serve Angular app
-    location / {
-        root /var/www/qubpiz/qubPiz/dist/qubPiz/browser;
-        try_files $uri $uri/ /index.html;
-    }
-
-    # Proxy API requests to Express
-    location /api {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    }
-
-    # Serve uploaded images
-    location /uploads {
-        alias /var/www/qubpiz/qubPiz/server/uploads;
-    }
-}
-NGINX_EOF
-    print_success "Nginx configuration updated with HTTP only"
-fi
-
-sudo nginx -t && sudo systemctl reload nginx
+# Note: Nginx configuration is NOT touched during updates
+# The build output goes to the same location: qubPiz/dist/qubPiz/browser
+# If you need to update nginx config, use setup-ssl.sh or edit manually
 
 # Restart application
 print_info "Starting application..."

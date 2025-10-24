@@ -794,6 +794,20 @@ app.post('/api/quiz/:id/restore', async (req, res) => {
   }
 });
 
+// Rename quiz
+app.put('/api/quiz/:id/rename', async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Quiz name cannot be empty' });
+    }
+    await pool.query('UPDATE quizzes SET quiz_name = $1 WHERE id = $2', [name.trim(), req.params.id]);
+    res.json({ success: true, message: 'Quiz renamed successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Get archived quizzes
 app.get('/api/quizzes/archived', async (req, res) => {
   try {
@@ -1167,6 +1181,33 @@ app.post('/api/questions', async (req, res) => {
     }
 
     res.json(question);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update a question
+app.put('/api/questions/:id', async (req, res) => {
+  const { question_text, answer, image_url, audio_url } = req.body;
+  try {
+    // Sanitize inputs
+    const sanitizedQuestionText = question_text ? sanitizeQuestionText(question_text) : null;
+    const sanitizedAnswer = answer ? sanitizeAnswer(answer) : null;
+
+    if (!sanitizedQuestionText) {
+      return res.status(400).json({ error: 'Question text is required' });
+    }
+
+    const result = await pool.query(
+      'UPDATE questions SET question_text = $1, answer = $2, image_url = $3, audio_url = $4 WHERE id = $5 RETURNING *',
+      [sanitizedQuestionText, sanitizedAnswer, image_url, audio_url, req.params.id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Question not found' });
+    }
+
+    res.json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

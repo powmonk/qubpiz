@@ -232,6 +232,33 @@ export class Mc implements OnInit, OnDestroy {
       });
   }
 
+  renameQuiz(quizId: number, event: Event) {
+    event.stopPropagation();
+
+    // Find the current quiz name
+    const quiz = this.allQuizzes.find(q => q.id === quizId);
+    if (!quiz) return;
+
+    const newName = prompt('Enter new quiz name:', quiz.quiz_name);
+    if (!newName || newName.trim() === '' || newName === quiz.quiz_name) {
+      return;
+    }
+
+    this.api.put(`/api/quiz/${quizId}/rename`, { name: newName.trim() })
+      .subscribe({
+        next: () => {
+          this.loadAllQuizzes();
+          if (this.currentQuiz && this.currentQuiz.id === quizId) {
+            this.currentQuiz.quiz_name = newName.trim();
+          }
+          console.log('Quiz renamed successfully');
+        },
+        error: (err) => {
+          console.error('Error renaming quiz:', err);
+        }
+      });
+  }
+
   deleteQuiz(quizId: number, event: Event) {
     event.stopPropagation();
 

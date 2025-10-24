@@ -137,6 +137,7 @@
           <p class="question-answer"><strong>A:</strong> {{ q.answer }}</p>
         </div>
         <div class="question-actions">
+          <button (click)="renameQuestion(q)" class="edit-btn-small" title="Edit question">✎</button>
           <button (click)="deleteQuestion(q.id)" class="delete-btn-small">×</button>
         </div>
       </div>
@@ -157,6 +158,7 @@
             alt="Question image"
           />
           <p class="image-answer"><strong>A:</strong> {{ q.answer }}</p>
+          <button (click)="renameQuestion(q)" class="edit-btn-small" title="Edit question">✎</button>
           <button (click)="deleteQuestion(q.id)" class="delete-btn-small">×</button>
         </div>
       </div>
@@ -177,6 +179,7 @@
             class="audio-player-mc"
           ></audio>
           <p class="image-answer"><strong>A:</strong> {{ q.answer }}</p>
+          <button (click)="renameQuestion(q)" class="edit-btn-small" title="Edit question">✎</button>
           <button (click)="deleteQuestion(q.id)" class="delete-btn-small">×</button>
         </div>
       </div>
@@ -197,6 +200,7 @@
           </div>
         </div>
         <div class="question-actions">
+          <button (click)="renameQuestion(q)" class="edit-btn-small" title="Edit question">✎</button>
           <button (click)="deleteQuestion(q.id)" class="delete-btn-small">×</button>
         </div>
       </div>
