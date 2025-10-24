@@ -1,8 +1,44 @@
 <div>
-  <!-- ========== SESSION LOBBY VIEW (Entry Point) ========== -->
-  <div *ngIf="viewMode === 'session-lobby'" class="session-lobby-view">
-    <h1>MC Control Panel</h1>
-    <p class="subtitle">Manage Your Game Sessions</p>
+  <!-- ========== LOGIN/REGISTER FORM ========== -->
+  <div *ngIf="!isLoggedIn" class="login-container">
+    <h1>{{ showRegisterForm ? 'MC Registration' : 'MC Login' }}</h1>
+    <div class="login-form">
+      <input type="text"
+             [(ngModel)]="loginUsername"
+             placeholder="Username"
+             (keyup.enter)="showRegisterForm ? register() : login()"
+             class="form-input">
+      <input type="password"
+             [(ngModel)]="loginPassword"
+             placeholder="Password"
+             (keyup.enter)="showRegisterForm ? register() : login()"
+             class="form-input">
+      <input *ngIf="showRegisterForm"
+             type="password"
+             [(ngModel)]="confirmPassword"
+             placeholder="Confirm Password"
+             (keyup.enter)="register()"
+             class="form-input">
+      <button *ngIf="!showRegisterForm" (click)="login()" class="primary-btn">Login</button>
+      <button *ngIf="showRegisterForm" (click)="register()" class="primary-btn">Register</button>
+      <button (click)="toggleRegisterForm()" class="secondary-btn">
+        {{ showRegisterForm ? 'Back to Login' : 'Create Account' }}
+      </button>
+      <div *ngIf="loginError" class="error-message">{{ loginError }}</div>
+    </div>
+  </div>
+
+  <!-- ========== MC CONTROL PANEL (Only shown when logged in) ========== -->
+  <div *ngIf="isLoggedIn">
+    <div class="user-info">
+      Logged in as: <strong>{{ currentUser?.username }}</strong>
+      <button (click)="logout()" class="logout-btn">Logout</button>
+    </div>
+
+    <!-- ========== SESSION LOBBY VIEW (Entry Point) ========== -->
+    <div *ngIf="viewMode === 'session-lobby'" class="session-lobby-view">
+      <h1>MC Control Panel</h1>
+      <p class="subtitle">Manage Your Game Sessions</p>
 
     <!-- Create New Session Section -->
     <div class="create-section">
@@ -197,5 +233,8 @@
         End This Session
       </button>
     </div>
+  </div>
+
+  <!-- Close isLoggedIn div -->
   </div>
 </div>

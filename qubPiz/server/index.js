@@ -8,6 +8,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const validator = require('validator');
+const bcrypt = require('bcrypt');
 
 const app = express();
 
@@ -289,6 +290,28 @@ async function resolveSessionContext(req, res, next) {
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='quizzes' AND column_name='archived') THEN
           ALTER TABLE quizzes ADD COLUMN archived BOOLEAN DEFAULT FALSE;
           RAISE NOTICE 'Added archived column to quizzes';
+        END IF;
+      END
+      $$;
+    `);
+
+    // Step 2c: Create users table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(50) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Step 2d: Add user_id column to quizzes table
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='quizzes' AND column_name='user_id') THEN
+          ALTER TABLE quizzes ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+          RAISE NOTICE 'Added user_id column to quizzes';
         END IF;
       END
       $$;
@@ -609,11 +632,11 @@ async function resolveSessionContext(req, res, next) {
 
 // Create a new quiz
 app.post('/api/quiz/create', async (req, res) => {
-  const { quiz_name, quiz_date } = req.body;
+  const { quiz_name, quiz_date, user_id } = req.body;
   try {
     const result = await pool.query(
-      "INSERT INTO quizzes (quiz_name, quiz_date) VALUES ($1, $2) RETURNING *",
-      [quiz_name, quiz_date]
+      "INSERT INTO quizzes (quiz_name, quiz_date, user_id) VALUES ($1, $2, $3) RETURNING *",
+      [quiz_name, quiz_date, user_id]
     );
     currentQuizId = result.rows[0].id;
     res.json({ quiz: result.rows[0] });
@@ -624,8 +647,26 @@ app.post('/api/quiz/create', async (req, res) => {
 
 // Get all active (non-archived) quizzes
 app.get('/api/quizzes', async (req, res) => {
+  const { user_id, username } = req.query;
   try {
-    const result = await pool.query('SELECT * FROM quizzes WHERE archived = FALSE ORDER BY quiz_date DESC, created_at DESC');
+    let result;
+
+    // If no user_id provided, return empty list (must be logged in)
+    if (!user_id) {
+      return res.json({ quizzes: [] });
+    }
+
+    // If username is "aldron", show all quizzes
+    if (username === 'aldron') {
+      result = await pool.query('SELECT * FROM quizzes WHERE archived = FALSE ORDER BY quiz_date DESC, created_at DESC');
+    } else {
+      // Otherwise, only show quizzes owned by this user
+      result = await pool.query(
+        'SELECT * FROM quizzes WHERE archived = FALSE AND user_id = $1 ORDER BY quiz_date DESC, created_at DESC',
+        [user_id]
+      );
+    }
+
     res.json({ quizzes: result.rows });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -800,6 +841,114 @@ app.get('/api/quizzes/archived', async (req, res) => {
     const result = await pool.query('SELECT * FROM quizzes WHERE archived = TRUE ORDER BY quiz_date DESC, created_at DESC');
     res.json({ quizzes: result.rows });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============= MC AUTHENTICATION ENDPOINTS =============
+
+// MC Login
+app.post('/api/mc/login', async (req, res) => {
+  const { username, password } = req.body;
+  console.log('Login attempt:', { username, passwordLength: password?.length });
+
+  try {
+    if (!username || !password) {
+      console.log('Missing credentials');
+      return res.status(400).json({ error: 'Username and password required' });
+    }
+
+    // Get user from database
+    const result = await pool.query(
+      'SELECT id, username, password_hash FROM users WHERE username = $1',
+      [username]
+    );
+
+    if (result.rows.length === 0) {
+      console.log('User not found:', username);
+      return res.status(401).json({ error: 'Invalid username or password' });
+    }
+
+    const user = result.rows[0];
+
+    // Compare password with hash
+    const valid = await bcrypt.compare(password, user.password_hash);
+    console.log('Password valid:', valid);
+
+    if (!valid) {
+      console.log('Invalid password for user:', username);
+      return res.status(401).json({ error: 'Invalid username or password' });
+    }
+
+    console.log('Login successful:', username);
+    // Return user info (no password)
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        username: user.username
+      }
+    });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// MC Register
+app.post('/api/mc/register', async (req, res) => {
+  const { username, password } = req.body;
+  console.log('Register attempt:', { username, passwordLength: password?.length });
+
+  try {
+    if (!username || !password) {
+      console.log('Missing credentials');
+      return res.status(400).json({ error: 'Username and password required' });
+    }
+
+    // Validate username length
+    if (username.length < 3 || username.length > 50) {
+      return res.status(400).json({ error: 'Username must be 3-50 characters' });
+    }
+
+    // Validate password length
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    // Check if username already exists
+    const existing = await pool.query(
+      'SELECT id FROM users WHERE username = $1',
+      [username]
+    );
+
+    if (existing.rows.length > 0) {
+      console.log('Username already exists:', username);
+      return res.status(409).json({ error: 'Username already taken' });
+    }
+
+    // Hash password
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // Insert new user
+    const result = await pool.query(
+      'INSERT INTO users (username, password_hash) VALUES ($1, $2) RETURNING id, username',
+      [username, passwordHash]
+    );
+
+    const user = result.rows[0];
+    console.log('Registration successful:', username);
+
+    // Return user info (no password)
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        username: user.username
+      }
+    });
+  } catch (err) {
+    console.error('Registration error:', err);
     res.status(500).json({ error: err.message });
   }
 });
